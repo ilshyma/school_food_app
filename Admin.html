@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<base target="_top">
+<style>
+  :root{
+    --bg:#f4f6f4; --card:#fff; --ink:#1c2b21; --muted:#66756b; --accent:#2e7d4f; --accent-soft:#e3f1e9;
+    --line:#e2e7e3; --v1:#f0a04b; --v2:#2e7d4f; --v0:#dfe5e0; --warn-ink:#a13333; --warn-bg:#fdecec;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{font:15px/1.45 -apple-system,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink)}
+  .wrap{max-width:900px; margin:0 auto; padding:16px}
+  h1{font-size:20px; margin-bottom:10px}
+  h2{font-size:17px; margin:0 0 10px}
+  .tabs{display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap}
+  .tab{padding:9px 16px; border-radius:999px; border:1px solid var(--line); background:var(--card); font-weight:600; cursor:pointer}
+  .tab.on{background:var(--accent); border-color:var(--accent); color:#fff}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:14px; min-width:0}
+  .row{display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:10px}
+  .row > div{flex:1; min-width:140px}
+  label{display:block; font-size:12px; color:var(--muted); margin-bottom:3px}
+  input,select{font:15px inherit; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:#fff; min-width:0; width:100%}
+  input[type=date]{min-width:150px} input[type=number]{min-width:110px}
+  .btn{font:600 15px inherit; padding:10px 18px; border:0; border-radius:10px; background:var(--accent); color:#fff; cursor:pointer; flex:0 0 auto}
+  .btn.sec{background:var(--accent-soft); color:var(--accent)}
+  .btn.ghost{background:none; border:1px solid var(--line); color:var(--ink)}
+  .btn:disabled{opacity:.45}
+  .muted{color:var(--muted); font-size:13px}
+  .err{color:var(--warn-ink); font-size:14px; min-height:18px; margin-top:6px}
+  .ok{color:var(--accent); font-size:14px; min-height:18px; margin-top:6px}
+  .hidden{display:none !important}
+  .tablebox{overflow-x:auto; -webkit-overflow-scrolling:touch}
+
+  /* чипи-фільтри */
+  .chips{display:flex; gap:7px; flex-wrap:wrap; margin-bottom:14px}
+  .chip{border:1px solid var(--line); background:var(--card); border-radius:999px; padding:6px 13px;
+       font-size:13px; font-weight:600; cursor:pointer; color:var(--ink); white-space:nowrap}
+  .chip.on{background:var(--accent); border-color:var(--accent); color:#fff}
+  .chip .cnt{font-weight:500; opacity:.65; margin-left:5px}
+
+  /* мітка класу */
+  .cls-tag{display:inline-block; background:var(--accent-soft); color:var(--accent); border-radius:6px;
+       padding:1px 7px; font-size:11.5px; font-weight:700; white-space:nowrap}
+  .cls-tag.none{background:var(--v0); color:var(--muted)}
+
+  /* «хто що замовив» */
+  table.who{width:100%; border-collapse:collapse; font-size:14px; margin-bottom:4px}
+  table.who th,table.who td{padding:6px 8px; text-align:left; border-bottom:1px solid var(--line); white-space:nowrap}
+  table.who th{font-size:11.5px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.02em}
+  table.who td:first-child{white-space:normal}
+  table.who tr.absent td:first-child{color:var(--muted)}
+  table.who td.clscell{background:var(--accent-soft); color:var(--accent); font-weight:700; font-size:12.5px;
+       vertical-align:top; white-space:nowrap; width:78px; text-align:right; border-bottom:1px solid var(--line)}
+  table.who td.clscell.none{background:var(--v0); color:var(--muted)}
+  .pill{display:inline-block; min-width:26px; text-align:center; padding:2px 8px; border-radius:999px; font-size:12.5px; font-weight:700; background:var(--v0); color:var(--muted)}
+  .pill.v1{background:var(--v1); color:#fff} .pill.v2{background:var(--v2); color:#fff}
+
+  /* порції по варіантах */
+  .meal{margin-bottom:18px}
+  .meal h3{font-size:16px; margin-bottom:8px; display:flex; justify-content:space-between}
+  .vars{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .var{border:1px solid var(--line); border-radius:12px; padding:12px; min-width:0}
+  .var .hd{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px}
+  .var .hd b{font-size:15px}
+  .cnt{font-size:22px; font-weight:800}
+  .desc{font-size:12.5px; color:var(--muted); margin-bottom:8px; line-height:1.4}
+  .names{font-size:14px}
+  .ngrp{display:grid; grid-template-columns:1fr 78px; column-gap:10px; align-items:start;
+       border-top:1px solid var(--line); padding-top:7px; margin-top:7px}
+  .ngrp:first-child{border-top:0; padding-top:0; margin-top:0}
+  .ngrp-cls{font-size:12.5px; font-weight:700; color:var(--accent); padding-top:2px; text-align:right}
+  .ngrp-cls.none{color:var(--muted); font-weight:600}
+  .names div.n{padding:2px 0; border-bottom:1px dotted var(--line)}
+  .names div.n:last-child{border-bottom:0}
+  .badge{display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:6px; vertical-align:middle}
+  .badge.v1{background:var(--v1)} .badge.v2{background:var(--v2)}
+
+  /* діти — компактні картки, тільки читання; редагування за олівцем */
+  .kidcard{border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; background:var(--card)}
+  .kc-top{display:flex; align-items:center; gap:9px}
+  .kc-top b{font-size:14.5px}
+  .kc-top .bal{margin-left:auto; font-size:13px; font-weight:700; white-space:nowrap}
+  .kc-top .bal.neg{color:var(--warn-ink)} .kc-top .bal.pos{color:var(--accent)}
+  .kc-pen{border:0; background:none; cursor:pointer; font-size:15px; padding:2px 4px; color:var(--muted); line-height:1}
+  .kc-pen:hover{color:var(--accent)}
+  .kc-meta{font-size:12.5px; color:var(--muted); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .kc-meta .sep{opacity:.45; margin:0 6px}
+  .kidcard.arch{opacity:.55}
+  .kc-grid{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px 10px; margin-top:10px}
+  .kc-grid label{margin-bottom:2px}
+  .kc-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:8px}
+  .kc-actions .btn{padding:8px 16px; font-size:13.5px}
+
+  .add-bar{display:flex; justify-content:center; margin-top:4px}
+
+  @media (max-width:640px){
+    .wrap{padding:12px}
+    .row{flex-direction:column; align-items:stretch}
+    .row > div{width:100%}
+    .row .btn{width:100%}
+    .vars{grid-template-columns:1fr}
+    .kc-grid{grid-template-columns:1fr 1fr}
+    table.who{font-size:13px}
+    table.who th,table.who td{padding:5px 5px}
+  }
+
+  @media print{
+    body{background:#fff}
+    .tabs,.noprint,.btn,.chips{display:none !important}
+    .card{border:0; padding:0}
+    .var{break-inside:avoid}
+    table.who td.clscell{background:#eee; color:#000}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="noprint">🍲 Адмін-панель харчування</h1>
+  <div class="tabs">
+    <div class="tab on" data-t="today" onclick="go('today')">Порції на день</div>
+    <div class="tab" data-t="pay" onclick="go('pay')">Внести оплату</div>
+    <div class="tab" data-t="kids" onclick="go('kids')">Діти</div>
+  </div>
+
+  <!-- ПОРЦІЇ -->
+  <div id="t-today">
+    <div class="card noprint">
+      <div class="row">
+        <div><label>Дата</label><input type="date" id="tday"></div>
+        <button class="btn" onclick="loadToday()">Показати</button>
+        <button class="btn sec" onclick="window.print()">🖨 Друк</button>
+        <span class="muted" id="today-meta"></span>
+      </div>
+      <label style="margin-top:6px">Класи (порожньо = усі)</label>
+      <div class="chips" id="rep-chips"><span class="muted">завантаження…</span></div>
+      <div class="err" id="today-err"></div>
+    </div>
+    <div class="card" id="today-out"><span class="muted">Оберіть дату і натисніть «Показати».</span></div>
+  </div>
+
+  <!-- ОПЛАТА -->
+  <div id="t-pay" class="hidden">
+    <div class="card">
+      <h2>Зарахувати оплату</h2>
+      <div class="row">
+        <div style="flex:2"><label>Дитина</label><select id="pay-name"></select></div>
+        <div><label>Сума, грн</label><input type="number" id="pay-sum" step="1" placeholder="1000"></div>
+        <div><label>Дата</label><input type="date" id="pay-date"></div>
+      </div>
+      <div class="row">
+        <div style="flex:3"><label>Коментар</label><input type="text" id="pay-comment" placeholder="напр. переказ від мами"></div>
+        <button class="btn" id="pay-btn" onclick="addPayment()">Зарахувати</button>
+      </div>
+      <div class="ok" id="pay-ok"></div>
+      <div class="err" id="pay-err"></div>
+      <p class="muted">Запис потрапляє в лист «Оплати», баланс перераховується, сім’ї з email надходить лист.</p>
+    </div>
+  </div>
+
+  <!-- ДІТИ -->
+  <div id="t-kids" class="hidden">
+    <div class="card">
+      <h2>Список <span class="muted" id="kids-count"></span></h2>
+      <div class="chips" id="kid-chips"></div>
+      <div id="kids-list"></div>
+      <div class="err" id="kids-err"></div>
+      <div class="ok" id="kids-ok"></div>
+      <div class="add-bar"><button class="btn sec" id="add-toggle" onclick="toggleAdd()">+ Додати дитину</button></div>
+      <div id="add-form" class="hidden" style="margin-top:14px; border-top:1px solid var(--line); padding-top:14px">
+        <div class="row">
+          <div style="flex:2"><label>ПІБ</label><input type="text" id="n-name"></div>
+          <div style="max-width:110px"><label>Клас</label><select id="n-cls"></select></div>
+          <div><label>Телефон 1</label><input type="text" id="n-p1"></div>
+          <div><label>Телефон 2</label><input type="text" id="n-p2"></div>
+        </div>
+        <div class="row">
+          <div><label>Email 1</label><input type="text" id="n-e1"></div>
+          <div><label>Email 2</label><input type="text" id="n-e2"></div>
+          <div style="flex:2"><label>Примітка</label><input type="text" id="n-note"></div>
+          <button class="btn" id="add-btn" onclick="addChild()">Додати</button>
+        </div>
+        <div class="err" id="add-err"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var ADMIN = '<?= admin ?>';
+  var roster = [], kidFilter = [], repFilter = [], repClasses = null, editingRow = 0;
+  function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function todayStr(){ var d = new Date(); return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
+  function money(v){ return (v > 0 ? '+' : '') + v + ' грн'; }
+  function pill(v){ return '<span class="pill' + (v === '№1' ? ' v1' : v === '№2' ? ' v2' : '') + '">' + (v === '№1' ? '1' : v === '№2' ? '2' : '—') + '</span>'; }
+  function clsTag(c){ return c ? '<span class="cls-tag">' + esc(c) + '</span>' : '<span class="cls-tag none">без класу</span>'; }
+  var CLASSES = ['0','1','2','3','4','5','6'];
+  function clsOptions(sel){
+    return '<option value=""' + (sel ? '' : ' selected') + '>—</option>' +
+      CLASSES.map(function(c){ return '<option' + (String(sel) === c ? ' selected' : '') + '>' + c + '</option>'; }).join('');
+  }
+  function clsSelect(sel, field){ return '<select data-f="' + field + '">' + clsOptions(sel) + '</select>'; }
+
+  function go(t){
+    ['today','pay','kids'].forEach(function(x){
+      $('t-' + x).classList.toggle('hidden', x !== t);
+      document.querySelector('.tab[data-t=' + x + ']').classList.toggle('on', x === t);
+    });
+    if (t !== 'today' && !roster.length) loadRoster();
+  }
+
+  // ---- порції ----
+  function renderRepChips(list){
+    var el = $('rep-chips');
+    el.innerHTML = '';
+    list.forEach(function(c){
+      var b = document.createElement('div');
+      b.className = 'chip' + (repFilter.indexOf(c) !== -1 ? ' on' : '');
+      b.textContent = c || 'без класу';
+      b.onclick = function(){
+        var i = repFilter.indexOf(c);
+        if (i === -1) repFilter.push(c); else repFilter.splice(i, 1);
+        renderRepChips(list);
+        loadToday();
+      };
+      el.appendChild(b);
+    });
+    if (repFilter.length){
+      var r = document.createElement('div');
+      r.className = 'chip';
+      r.textContent = '× скинути';
+      r.onclick = function(){ repFilter = []; renderRepChips(list); loadToday(); };
+      el.appendChild(r);
+    }
+  }
+
+  function loadToday(){
+    $('today-err').textContent = '';
+    $('today-out').innerHTML = '<span class="muted">Завантаження…</span>';
+    google.script.run.withSuccessHandler(function(r){
+      if (!r || r.error){ $('today-err').textContent = r ? r.error : 'Помилка'; $('today-out').innerHTML = ''; return; }
+      $('today-meta').textContent = 'відповіли: ' + r.answered + ' з ' + r.total;
+      if (repClasses === null || r.classes.length !== repClasses.length){ repClasses = r.classes; renderRepChips(repClasses); }
+      var html = '<h2>' + esc(r.title) + (repFilter.length ? ' · класи: ' + repFilter.map(function(c){ return c || 'без класу'; }).join(', ') : '') + '</h2>';
+
+      // ПІБ ↔ варіант, згруповано по класах
+      html += '<div class="tablebox"><table class="who"><thead><tr><th>ПІБ</th><th>Сніданок</th><th>Обід</th><th>Підвечірок</th><th>Клас</th></tr></thead><tbody>';
+      var tgroups = [], torder = {};
+      (r.table || []).forEach(function(row){
+        var c = row.cls || '';
+        if (torder[c] === undefined){ torder[c] = tgroups.length; tgroups.push({ cls: c, rows: [] }); }
+        tgroups[torder[c]].rows.push(row);
+      });
+      tgroups.forEach(function(g){
+        g.rows.forEach(function(row, i){
+          html += '<tr class="' + (row.answered ? '' : 'absent') + '">' +
+            '<td>' + esc(row.name) + '</td>' +
+            row.vals.map(function(v){ return '<td>' + pill(v) + '</td>'; }).join('') +
+            (i === 0 ? '<td class="clscell' + (g.cls ? '' : ' none') + '" rowspan="' + g.rows.length + '">' +
+              (g.cls ? esc(g.cls) + ' клас' : 'без класу') + '</td>' : '') + '</tr>';
+        });
+      });
+      html += '</tbody></table></div>';
+
+      r.meals.forEach(function(m){
+        html += '<div class="meal"><h3><span>' + esc(m.meal) + '</span><span class="muted">разом ' + m.total + '</span></h3><div class="vars">';
+        m.variants.forEach(function(v){
+          html += '<div class="var"><div class="hd"><b><span class="badge ' + (v.v === '№1' ? 'v1' : 'v2') + '"></span>' + esc(v.v) + '</b>' +
+            '<span class="cnt">' + v.count + '</span></div>' +
+            (v.desc ? '<div class="desc">' + esc(v.desc).replace(/;\s*/g, '<br>') + '</div>' : '') +
+            '<div class="names">' + namesByClass(v.names) + '</div></div>';
+        });
+        html += '</div></div>';
+      });
+      $('today-out').innerHTML = html;
+    }).withFailureHandler(function(e){ $('today-err').textContent = e.message; })
+    .api_admin_today(ADMIN, $('tday').value, repFilter);
+  }
+
+  function namesByClass(names){
+    if (!names.length) return '<span class="muted">—</span>';
+    var groups = {}, order = [];
+    names.forEach(function(n){
+      var c = n.cls || '';
+      if (!groups[c]){ groups[c] = []; order.push(c); }
+      groups[c].push(n.name);
+    });
+    order.sort();
+    return order.map(function(c){
+      return '<div class="ngrp"><div>' +
+        groups[c].map(function(n){ return '<div class="n">' + esc(n) + '</div>'; }).join('') +
+        '</div><div class="ngrp-cls' + (c ? '' : ' none') + '">' +
+        (c ? esc(c) + ' клас' : 'без класу') + '</div></div>';
+    }).join('');
+  }
+
+  // ---- діти ----
+  function loadRoster(){
+    google.script.run.withSuccessHandler(function(r){
+      if (!r || r.error){ $('kids-err').textContent = r ? r.error : 'Помилка'; return; }
+      roster = r.children;
+      renderKidChips();
+      renderRoster();
+      var sel = $('pay-name');
+      var opts = roster.filter(function(k){ return k.status !== 'архів'; })
+        .map(function(k){
+          return { name: k.name, label: (k.cls ? k.cls + ' клас' : 'без класу') + ' - ' + k.name + ' (' + money(k.balance) + ')' };
+        })
+        .sort(function(a, b){ return a.label.localeCompare(b.label, 'uk', { numeric: true }); });
+      sel.innerHTML = '<option value="">— оберіть —</option>' +
+        opts.map(function(o){ return '<option value="' + esc(o.name) + '">' + esc(o.label) + '</option>'; }).join('');
+    }).withFailureHandler(function(e){ $('kids-err').textContent = e.message; }).api_admin_roster(ADMIN);
+  }
+
+  function classList(){
+    var out = [];
+    roster.forEach(function(k){ var c = k.cls || ''; if (out.indexOf(c) === -1) out.push(c); });
+    out.sort(function(a, b){ return (a || 'яяя').localeCompare(b || 'яяя', 'uk'); });
+    return out;
+  }
+
+  function renderKidChips(){
+    var el = $('kid-chips');
+    el.innerHTML = '';
+    classList().forEach(function(c){
+      var n = roster.filter(function(k){ return (k.cls || '') === c; }).length;
+      var b = document.createElement('div');
+      b.className = 'chip' + (kidFilter.indexOf(c) !== -1 ? ' on' : '');
+      b.innerHTML = esc(c || 'без класу') + '<span class="cnt">' + n + '</span>';
+      b.onclick = function(){
+        var i = kidFilter.indexOf(c);
+        if (i === -1) kidFilter.push(c); else kidFilter.splice(i, 1);
+        renderKidChips(); renderRoster();
+      };
+      el.appendChild(b);
+    });
+    if (kidFilter.length){
+      var r = document.createElement('div');
+      r.className = 'chip';
+      r.textContent = '× скинути';
+      r.onclick = function(){ kidFilter = []; renderKidChips(); renderRoster(); };
+      el.appendChild(r);
+    }
+  }
+
+  function visibleKids(){
+    return roster.filter(function(k){ return !kidFilter.length || kidFilter.indexOf(k.cls || '') !== -1; });
+  }
+
+  function renderRoster(){
+    var el = $('kids-list');
+    el.innerHTML = '';
+    var vis = visibleKids();
+    $('kids-count').textContent = '(' + vis.length + (kidFilter.length ? ' з ' + roster.length : '') +
+      ', активних ' + vis.filter(function(k){ return k.status !== 'архів'; }).length + ')';
+    vis.forEach(function(k){
+      el.appendChild(k.row === editingRow ? kidEditCard(k) : kidViewCard(k));
+    });
+  }
+
+  function kidViewCard(k){
+    var card = document.createElement('div');
+    card.className = 'kidcard' + (k.status === 'архів' ? ' arch' : '');
+    var meta = [k.phone1, k.phone2, k.email1, k.email2, k.note].filter(Boolean).join(' · ');
+    card.innerHTML =
+      '<div class="kc-top">' + clsTag(k.cls) + '<b>' + esc(k.name) + '</b>' +
+        (k.status === 'архів' ? '<span class="muted">архів</span>' : '') +
+        '<span class="bal ' + (k.balance < 0 ? 'neg' : 'pos') + '">' + esc(money(k.balance)) + '</span>' +
+        '<button class="kc-pen" title="Редагувати">✏️</button></div>' +
+      (meta ? '<div class="kc-meta">' + esc(meta) + '</div>' : '');
+    card.querySelector('.kc-pen').onclick = function(){ editingRow = k.row; renderRoster(); };
+    return card;
+  }
+
+  function kidEditCard(k){
+    var card = document.createElement('div');
+    card.className = 'kidcard';
+    card.innerHTML =
+      '<div class="kc-top"><b>' + esc(k.name) + '</b><span class="bal ' + (k.balance < 0 ? 'neg' : 'pos') + '">' + esc(money(k.balance)) + '</span></div>' +
+      '<div class="kc-grid">' +
+        '<div><label>ПІБ</label><input value="' + esc(k.name) + '" data-f="name"></div>' +
+        '<div><label>Клас</label>' + clsSelect(k.cls, 'cls') + '</div>' +
+        '<div><label>Статус</label><select data-f="status"><option' + (k.status !== 'архів' ? ' selected' : '') + '>активний</option><option' + (k.status === 'архів' ? ' selected' : '') + '>архів</option></select></div>' +
+        '<div><label>Примітка</label><input value="' + esc(k.note) + '" data-f="note"></div>' +
+        '<div><label>Телефон 1</label><input value="' + esc(k.phone1) + '" data-f="phone1"></div>' +
+        '<div><label>Телефон 2</label><input value="' + esc(k.phone2) + '" data-f="phone2"></div>' +
+        '<div><label>Email 1</label><input value="' + esc(k.email1) + '" data-f="email1"></div>' +
+        '<div><label>Email 2</label><input value="' + esc(k.email2) + '" data-f="email2"></div>' +
+      '</div>' +
+      '<div class="kc-actions"><button class="btn ghost">Скасувати</button><button class="btn">Зберегти</button></div>';
+    var btns = card.querySelectorAll('.kc-actions .btn');
+    btns[0].onclick = function(){ editingRow = 0; renderRoster(); };
+    btns[1].onclick = function(){ saveCard(card, k.row, btns[1]); };
+    return card;
+  }
+
+  function cardData(card){
+    var d = {};
+    card.querySelectorAll('[data-f]').forEach(function(el){ d[el.getAttribute('data-f')] = el.value; });
+    return d;
+  }
+
+  function saveCard(card, row, btn){
+    var d = cardData(card); d.row = row;
+    btn.disabled = true; btn.textContent = '…';
+    google.script.run.withSuccessHandler(function(r){
+      if (!r || r.error){ $('kids-err').textContent = r ? r.error : 'Помилка'; btn.disabled = false; btn.textContent = 'Зберегти'; return; }
+      $('kids-err').textContent = '';
+      editingRow = 0;
+      flashOk('✅ Збережено: ' + (d.name || '').trim());
+      roster = r.children; renderKidChips(); renderRoster();
+    }).withFailureHandler(function(e){ $('kids-err').textContent = e.message; btn.disabled = false; btn.textContent = 'Зберегти'; })
+    .api_admin_saveChild(ADMIN, d);
+  }
+
+  function setAddOpen(open){
+    $('add-form').classList.toggle('hidden', !open);
+    $('add-toggle').textContent = open ? '× Згорнути' : '+ Додати дитину';
+    if (open) $('n-name').focus();
+  }
+  function toggleAdd(){ setAddOpen($('add-form').classList.contains('hidden')); }
+
+  var okTimer = null;
+  function flashOk(msg){
+    $('kids-ok').textContent = msg;
+    if (okTimer) clearTimeout(okTimer);
+    okTimer = setTimeout(function(){ $('kids-ok').textContent = ''; }, 5000);
+  }
+
+  function addChild(){
+    var btn = $('add-btn');
+    var d = { name: $('n-name').value, cls: $('n-cls').value, phone1: $('n-p1').value, phone2: $('n-p2').value,
+              email1: $('n-e1').value, email2: $('n-e2').value, note: $('n-note').value, status: 'активний' };
+    $('add-err').textContent = '';
+    if (!d.name.trim()){ $('add-err').textContent = 'Введіть ПІБ.'; $('n-name').focus(); return; }
+    var added = d.name.trim();
+    btn.disabled = true; btn.textContent = 'Додаю…';
+    google.script.run.withSuccessHandler(function(r){
+      btn.disabled = false; btn.textContent = 'Додати';
+      if (!r || r.error){ $('add-err').textContent = r ? r.error : 'Помилка'; return; }
+      ['n-name','n-p1','n-p2','n-e1','n-e2','n-note'].forEach(function(id){ $(id).value = ''; });
+      $('n-cls').innerHTML = clsOptions('');
+      setAddOpen(false);
+      flashOk('✅ Додано: ' + added);
+      roster = r.children; renderKidChips(); renderRoster();
+    }).withFailureHandler(function(e){
+      btn.disabled = false; btn.textContent = 'Додати';
+      $('add-err').textContent = e.message;
+    }).api_admin_saveChild(ADMIN, d);
+  }
+
+  // ---- оплата ----
+  function addPayment(){
+    $('pay-ok').textContent = ''; $('pay-err').textContent = '';
+    var p = { name: $('pay-name').value, sum: $('pay-sum').value, date: $('pay-date').value, comment: $('pay-comment').value };
+    if (!p.name){ $('pay-err').textContent = 'Оберіть дитину.'; return; }
+    if (!Number(p.sum)){ $('pay-err').textContent = 'Введіть суму.'; return; }
+    $('pay-btn').disabled = true;
+    google.script.run.withSuccessHandler(function(r){
+      $('pay-btn').disabled = false;
+      if (!r || r.error){ $('pay-err').textContent = r ? r.error : 'Помилка'; return; }
+      $('pay-ok').textContent = '✅ Зараховано. Баланс ' + p.name + ': ' + money(r.balance) + (r.emailed ? ' · лист надіслано' : ' · email не вказано');
+      $('pay-sum').value = ''; $('pay-comment').value = '';
+      loadRoster();
+    }).withFailureHandler(function(e){ $('pay-btn').disabled = false; $('pay-err').textContent = e.message; })
+    .api_admin_addPayment(ADMIN, p);
+  }
+
+  $('n-cls').innerHTML = clsOptions('');
+  $('tday').value = todayStr();
+  $('pay-date').value = todayStr();
+  loadToday();
+</script>
+</body>
+</html>
