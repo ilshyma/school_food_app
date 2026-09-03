@@ -19,6 +19,7 @@ const SHEETS = {
   SUMMARY: 'Зведення',    // генерується: підрахунки для кухні + хто не замовив
   BALANCE: 'Баланс',      // генерується: замовлено/оплачено по кожній дитині
   LOG: 'Журнал змін',     // що саме змінили батьки — для передачі кейтерингу
+  IMPORT: 'Імпорт',       // переїзд зі старої системи: список + стартові баланси
 };
 
 // увесь час у системі — львівський, незалежно від налаштувань акаунта/скрипта
@@ -45,6 +46,12 @@ const DEFAULT_RULES = {
 const ROSTER_HEADERS = ['ПІБ', 'Клас', 'Телефон 1', 'Телефон 2', 'Статус', 'Email 1', 'Email 2', 'Примітка'];
 const PAYMENT_HEADERS = ['Дата', 'ПІБ', 'Сума, грн', 'Коментар', 'Повідомлено'];
 
+// лист переїзду: адмін вставляє сюди дані зі старої системи, далі пункт меню 4
+const IMPORT_HEADERS = ['ПІБ', 'Клас', 'Телефон 1', 'Телефон 2', 'Email 1', 'Email 2',
+  'Баланс на старті, грн', 'Примітка', 'Статус', 'Результат'];
+// текст коментаря в «Оплатах», за яким видно вже перенесений баланс (захист від подвоєння)
+const IMPORT_NOTE = 'Перенесення з попередньої системи';
+
 // ---------------------------------------------------------------- меню адміна
 
 function onOpen() {
@@ -52,6 +59,7 @@ function onOpen() {
     .addItem('1. Створити/оновити службові листи', 'setupSheets')
     .addItem('2. Розібрати меню з листа «Меню»', 'parseMenuRaw')
     .addItem('3. Згенерувати персональні посилання', 'generateLinks')
+    .addItem('4. Імпорт: перенести список і баланси з листа «Імпорт»', 'importFromSheet')
     .addSeparator()
     .addItem('Оновити «Зведення» і «Баланс»', 'refreshAll')
     .addItem('Позначити зміни як передані кейтерингу', 'markChangesSent')
@@ -287,9 +295,37 @@ function setupSheets() {
   ordersSh.getRange(2, 19, 4999, 1).setNumberFormat('dd.mm.yyyy hh:mm');
   ordersSh.getRange(2, 20, 4999, 1).setNumberFormat('@');
 
+  // ---- «Імпорт» (переїзд зі старої системи) ----
+  const imp = ensure(SHEETS.IMPORT, IMPORT_HEADERS);
+  if (String(imp.getRange(1, 1).getValue() || '').trim() !== 'ПІБ') {
+    imp.getRange(1, 1, 1, IMPORT_HEADERS.length).setValues([IMPORT_HEADERS]);
+    imp.setFrozenRows(1);
+  }
+  imp.getRange(1, 1, 1, IMPORT_HEADERS.length).setFontWeight('bold').setBackground('#e3f1e9');
+  imp.getRange(1, 1).setNote(
+    'Сюди вставте дані зі старої системи (Paste values only), потім меню → пункт 4.\n\n' +
+    '• ПІБ — обов’язковий; саме під цим написанням дитина житиме далі.\n' +
+    '• Клас — число 0–6 або порожньо.\n' +
+    '• Баланс: додатний = передоплата, від’ємний = борг, порожньо = 0.\n' +
+    '• Статус: порожньо = активний.\n' +
+    '• Колонку «Результат» заповнює скрипт — руками не чіпати.\n\n' +
+    'Імпорт можна запускати повторно: контакти оновляться, а баланс кожної дитини перенесеться лише раз.');
+  imp.getRange('A2:F1000').setNumberFormat('@');
+  imp.getRange('B2:B1000').setDataValidation(listRule(['0', '1', '2', '3', '4', '5', '6'], false, 'Клас: число 0–6'));
+  imp.getRange('G2:G1000').setNumberFormat('0').setDataValidation(
+    SpreadsheetApp.newDataValidation().requireNumberBetween(-1000000, 1000000)
+      .setAllowInvalid(true).setHelpText('Баланс у гривнях: додатний = передоплата, від’ємний = борг').build());
+  imp.getRange('H2:J1000').setNumberFormat('@');
+  imp.getRange('I2:I1000').setDataValidation(listRule(['активний', 'архів'], false, 'Порожньо = активний'));
+  imp.setColumnWidth(1, 220);
+  imp.setColumnWidth(7, 160);
+  imp.setColumnWidth(10, 300);
+
   SpreadsheetApp.getUi().alert(
-    'Службові листи готові.\nЗаповніть «Список» (телефони/email, статус), перевірте «Ціни» і «Правила змін», ' +
-    'у «Налаштуваннях» вкажіть понеділок тижня — дедлайн першого замовлення порахується сам.');
+    'Службові листи готові.\nЗаповніть «Список» (телефони/email, статус) — або, якщо переїжджаєте зі старої ' +
+    'системи, вставте дані в лист «Імпорт» і запустіть пункт меню 4.\n' +
+    'Перевірте «Ціни» і «Правила змін», у «Налаштуваннях» вкажіть понеділок тижня — ' +
+    'дедлайн першого замовлення порахується сам.');
 }
 
 // ---------------------------------------------------------------- час (Львів)
@@ -624,6 +660,130 @@ function markChangesSent() {
   vals.forEach(r => { if (!String(r[0]).trim()) { r[0] = 'так'; n++; } });
   rng.setValues(vals);
   SpreadsheetApp.getUi().alert(n ? 'Позначено переданими: ' + n + ' змін.' : 'Непереданих змін немає.');
+}
+
+// ---------------------------------------------------------------- переїзд зі старої системи
+
+/**
+ * Читає лист «Імпорт»: додає нових дітей у «Список», оновлює контакти наявних
+ * і переносить стартові баланси окремими рядками в «Оплати».
+ *
+ * Ідемпотентний: баланс дитини переноситься один раз — рядок у «Оплатах»
+ * позначається коментарем IMPORT_NOTE, і повторний запуск його не дублює.
+ * Результат по кожному рядку пишеться в колонку «Результат».
+ */
+function importFromSheet() {
+  const ui = SpreadsheetApp.getUi();
+  const sh = sheet(SHEETS.IMPORT);
+  if (!sh || sh.getLastRow() < 2) {
+    ui.alert('Лист «Імпорт» порожній.\n\nВставте туди список зі старої системи (ПІБ, клас, контакти, баланс) і запустіть пункт меню ще раз.');
+    return;
+  }
+
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, IMPORT_HEADERS.length).getValues();
+  const rosterSh = sheet(SHEETS.ROSTER, true);
+  const byName = {};
+  roster().forEach(k => { byName[k.name] = k; });
+
+  // хто вже отримував стартовий баланс
+  const pSh = sheet(SHEETS.PAYMENTS, true);
+  const balDone = {};
+  if (pSh.getLastRow() > 1) {
+    pSh.getRange(2, 1, pSh.getLastRow() - 1, 4).getValues().forEach(r => {
+      if (String(r[3] || '').indexOf(IMPORT_NOTE) === 0) balDone[String(r[1]).trim()] = true;
+    });
+  }
+
+  const results = rows.map(() => '');
+  const seen = {}, toAdd = [], toUpdate = [], toPay = [];
+  let nSkip = 0, nBal = 0, sumBal = 0, nSame = 0;
+  const today = new Date();
+
+  rows.forEach((r, i) => {
+    const name = String(r[0] || '').trim().replace(/\s+/g, ' ');
+    if (!name) {
+      if (r.slice(0, 9).some(v => String(v || '').trim())) { results[i] = '⚠ пропущено: немає ПІБ'; nSkip++; }
+      return;
+    }
+    if (seen[name]) { results[i] = '⚠ пропущено: дубль ПІБ (рядок ' + seen[name] + ')'; nSkip++; return; }
+    seen[name] = i + 2;
+
+    const warn = [];
+    let cls = String(r[1] === null || r[1] === undefined ? '' : r[1]).trim();
+    if (cls && !/^[0-6]$/.test(cls)) { warn.push('клас «' + cls + '» не 0–6 → порожньо'); cls = ''; }
+
+    const ph = [String(r[2] || '').trim(), String(r[3] || '').trim()];
+    ph.forEach((v, j) => { if (v && !normPhone(v)) warn.push('телефон ' + (j + 1) + ': менше 9 цифр'); });
+    const em = [String(r[4] || '').trim(), String(r[5] || '').trim()];
+    em.forEach((v, j) => { if (v && !normEmail(v)) warn.push('email ' + (j + 1) + ': не схоже на адресу'); });
+
+    let bal = 0;
+    const rawBal = r[6];
+    if (rawBal !== '' && rawBal !== null && rawBal !== undefined) {
+      bal = Number(String(rawBal).replace(/\s/g, '').replace(',', '.'));
+      if (isNaN(bal)) { warn.push('баланс «' + rawBal + '» не число → 0'); bal = 0; }
+    }
+
+    const note = String(r[7] || '').trim();
+    let status = String(r[8] || '').trim().toLowerCase();
+    if (status && status !== 'активний' && status !== 'архів') { warn.push('статус «' + status + '» → активний'); status = ''; }
+
+    const old = byName[name];
+    const done = [];
+    if (old) {
+      const cur = [old.name, old.cls, old.rawPhones[0], old.rawPhones[1], old.status,
+                   old.rawEmails[0], old.rawEmails[1], old.note];
+      // порожня комірка в «Імпорті» не затирає те, що вже є у «Списку»
+      const merged = [name, cls || old.cls, ph[0] || old.rawPhones[0], ph[1] || old.rawPhones[1],
+                      status || old.status, em[0] || old.rawEmails[0], em[1] || old.rawEmails[1], note || old.note];
+      if (merged.join('\u0001') !== cur.join('\u0001')) { toUpdate.push({ row: old.row, values: merged }); done.push('оновлено у «Списку»'); }
+      else { done.push('уже є, без змін'); nSame++; }
+    } else {
+      toAdd.push([name, cls, ph[0], ph[1], status, em[0], em[1], note]);
+      byName[name] = { name: name };
+      done.push('додано у «Список»');
+    }
+
+    if (bal) {
+      if (balDone[name]) {
+        done.push('баланс уже переносили — пропущено');
+      } else {
+        toPay.push([today, name, bal, IMPORT_NOTE, 'так']);
+        balDone[name] = true;
+        nBal++; sumBal += bal;
+        done.push('баланс ' + (bal > 0 ? '+' : '') + bal + ' грн');
+      }
+    }
+
+    results[i] = (warn.length ? '⚠ ' : '✅ ') + done.join('; ') + (warn.length ? ' | ' + warn.join('; ') : '');
+  });
+
+  const ok = ui.alert('Імпорт зі старої системи',
+    'Рядків у листі: ' + rows.length + '\n\n' +
+    'Додати дітей: ' + toAdd.length + '\n' +
+    'Оновити наявних: ' + toUpdate.length + '\n' +
+    'Без змін: ' + nSame + '\n' +
+    'Перенести балансів: ' + nBal + ' (разом ' + (sumBal > 0 ? '+' : '') + sumBal + ' грн)\n' +
+    'Пропустити: ' + nSkip + '\n\nПродовжити?', ui.ButtonSet.OK_CANCEL);
+  if (ok !== ui.Button.OK) { ui.alert('Скасовано. У таблиці нічого не змінено.'); return; }
+
+  if (toAdd.length) rosterSh.getRange(rosterSh.getLastRow() + 1, 1, toAdd.length, ROSTER_HEADERS.length).setValues(toAdd);
+  toUpdate.forEach(u => rosterSh.getRange(u.row, 1, 1, ROSTER_HEADERS.length).setValues([u.values]));
+  if (toPay.length) {
+    pSh.getRange(pSh.getLastRow() + 1, 1, toPay.length, PAYMENT_HEADERS.length).setValues(toPay);
+    pSh.getRange(pSh.getLastRow() - toPay.length + 1, 1, toPay.length, 1).setNumberFormat('dd.mm.yyyy');
+  }
+  sh.getRange(2, IMPORT_HEADERS.length, results.length, 1).setValues(results.map(v => [v]));
+
+  refreshBalance();
+
+  ui.alert('Імпорт завершено',
+    'Додано: ' + toAdd.length + '\n' +
+    'Оновлено: ' + toUpdate.length + '\n' +
+    'Балансів перенесено: ' + nBal + ' (разом ' + (sumBal > 0 ? '+' : '') + sumBal + ' грн)\n' +
+    'Пропущено: ' + nSkip + '\n\n' +
+    'Деталі по кожному рядку — у колонці «Результат» листа «Імпорт».\n' +
+    'Лист «Баланс» уже перерахований.', ui.ButtonSet.OK);
 }
 
 // ---------------------------------------------------------------- баланси
