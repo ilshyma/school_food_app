@@ -104,7 +104,35 @@
     table.who th,table.who td{padding:5px 5px}
   }
 
+  /* виписка */
+  .presets{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px}
+  .preset{border:1px solid var(--line); background:var(--card); border-radius:999px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer}
+  .preset.on{background:var(--accent); border-color:var(--accent); color:#fff}
+  .sumgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+  @media (max-width:640px){ .sumgrid{grid-template-columns:1fr 1fr} }
+  .sumgrid div{background:var(--bg); border-radius:10px; padding:9px 11px}
+  .sumgrid span{display:block; font-size:12px; color:var(--muted)}
+  .sumgrid b{font-size:17px; font-variant-numeric:tabular-nums}
+  .pos{color:var(--accent)} .neg{color:var(--warn-ink)}
+  .srow{display:grid; grid-template-columns:70px 1fr auto; gap:4px 12px; padding:9px 0; border-top:1px solid var(--line)}
+  .srow:first-child{border-top:0}
+  .srow .dt{font-size:13px; font-weight:700}
+  .srow .dt small{display:block; font-weight:400; color:var(--muted); font-size:11px}
+  .srow .ds{font-size:13.5px; min-width:0}
+  .srow .am{text-align:right; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap}
+  .srow .am small{display:block; font-weight:400; color:var(--muted); font-size:11.5px}
+  .srow .mi{display:inline-block; margin:0 4px 3px 0; padding:2px 7px; border-radius:6px; background:var(--bg); font-size:12px}
+  .srow .mi b{color:#fff; border-radius:4px; padding:0 4px; font-size:10.5px; margin-right:3px}
+  .srow .mi b.v1{background:var(--v1)} .srow .mi b.v2{background:var(--v2)}
+  .srow .ch{font-size:12px; color:var(--muted); margin-top:2px}
+  .srow .ch.late{color:#7c5316}
+  .srow .fx{font-size:12px; color:var(--warn-ink); margin-top:2px}
+  .srow.pay .ds{color:var(--accent); font-weight:600}
+  .srow.future{opacity:.7}
+  .print-only{display:none}
   @media print{
+    .print-only{display:block}
+    .srow{break-inside:avoid}
     body{background:#fff}
     .tabs,.noprint,.btn,.chips{display:none !important}
     .card{border:0; padding:0}
@@ -120,6 +148,7 @@
     <div class="tab on" data-t="today" onclick="go('today')">Порції на день</div>
     <div class="tab" data-t="pay" onclick="go('pay')">Внести оплату</div>
     <div class="tab" data-t="kids" onclick="go('kids')">Діти</div>
+    <div class="tab" data-t="stmt" onclick="go('stmt')">Виписка</div>
   </div>
 
   <!-- ПОРЦІЇ -->
@@ -155,6 +184,24 @@
       <div class="err" id="pay-err"></div>
       <p class="muted">Запис потрапляє в лист «Оплати», баланс перераховується, сім’ї з email надходить лист.</p>
     </div>
+  </div>
+
+  <!-- ВИПИСКА -->
+  <div id="t-stmt" class="hidden">
+    <div class="card noprint">
+      <h2>Виписка за період</h2>
+      <div class="row">
+        <div style="flex:2"><label>Дитина</label><select id="st-name" onchange="loadStatement()"></select></div>
+        <div><label>з</label><input type="date" id="st-from"></div>
+        <div><label>по</label><input type="date" id="st-to"></div>
+        <button class="btn" onclick="loadStatement()">Показати</button>
+      </div>
+      <div class="presets" id="st-presets"></div>
+      <div class="err" id="st-err"></div>
+      <p class="muted">Баланс на початок, харчування по днях (за днем, на який замовлено), оплати та історія змін.
+        Той самий звіт батьки бачать у формі за кнопкою «Виписка».</p>
+    </div>
+    <div id="st-out"></div>
   </div>
 
   <!-- ДІТИ -->
@@ -202,7 +249,7 @@
   function clsSelect(sel, field){ return '<select data-f="' + field + '">' + clsOptions(sel) + '</select>'; }
 
   function go(t){
-    ['today','pay','kids'].forEach(function(x){
+    ['today','pay','kids','stmt'].forEach(function(x){
       $('t-' + x).classList.toggle('hidden', x !== t);
       document.querySelector('.tab[data-t=' + x + ']').classList.toggle('on', x === t);
     });
@@ -309,6 +356,13 @@
         .sort(function(a, b){ return a.label.localeCompare(b.label, 'uk', { numeric: true }); });
       sel.innerHTML = '<option value="">— оберіть —</option>' +
         opts.map(function(o){ return '<option value="' + esc(o.name) + '">' + esc(o.label) + '</option>'; }).join('');
+      // виписка: усі діти, включно з архівом
+      var stSel = $('st-name'), keep = stSel.value;
+      stSel.innerHTML = '<option value="">— оберіть —</option>' + roster
+        .map(function(k){ return { name: k.name, label: (k.cls ? k.cls + ' клас' : 'без класу') + ' - ' + k.name + (k.status === 'архів' ? ' (архів)' : '') }; })
+        .sort(function(a, b){ return a.label.localeCompare(b.label, 'uk', { numeric: true }); })
+        .map(function(o){ return '<option value="' + esc(o.name) + '">' + esc(o.label) + '</option>'; }).join('');
+      stSel.value = keep;
     }).withFailureHandler(function(e){ $('kids-err').textContent = e.message; }).api_admin_roster(ADMIN);
   }
 
@@ -449,6 +503,80 @@
     }).api_admin_saveChild(ADMIN, d);
   }
 
+  // ---- виписка ----
+  var stPreset = 'month';
+  var PRESETS = [['month','Цей місяць'],['prev','Минулий місяць'],['week','Цей тиждень'],['year','Навчальний рік'],['all','Весь час']];
+  function isoDay(d){ return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
+  function presetRange(key){
+    var t = new Date(), y = t.getFullYear(), m = t.getMonth();
+    if (key === 'month') return [new Date(y, m, 1), t];
+    if (key === 'prev') return [new Date(y, m - 1, 1), new Date(y, m, 0)];
+    if (key === 'week'){ var wd = (t.getDay() + 6) % 7; var mon = new Date(y, m, t.getDate() - wd); return [mon, new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 4)]; }
+    if (key === 'year') return [new Date(m >= 8 ? y : y - 1, 8, 1), t];
+    return [new Date(2000, 0, 1), new Date(y + 1, 11, 31)];
+  }
+  function setPreset(key){
+    stPreset = key;
+    var r = presetRange(key);
+    $('st-from').value = isoDay(r[0]); $('st-to').value = isoDay(r[1]);
+    var el = $('st-presets'); el.innerHTML = '';
+    PRESETS.forEach(function(p){
+      var b = document.createElement('div');
+      b.className = 'preset' + (stPreset === p[0] ? ' on' : '');
+      b.textContent = p[1];
+      b.onclick = function(){ setPreset(p[0]); loadStatement(); };
+      el.appendChild(b);
+    });
+  }
+  function uah(v, sign){
+    var s = Math.abs(v).toLocaleString('uk-UA') + ' грн';
+    return sign ? (v > 0 ? '+' : v < 0 ? '−' : '') + s : (v < 0 ? '−' : '') + s;
+  }
+  function loadStatement(){
+    var p = { name: $('st-name').value, from: $('st-from').value, to: $('st-to').value };
+    $('st-err').textContent = '';
+    if (!p.name){ $('st-out').innerHTML = ''; return; }
+    if (p.from && p.to && p.from > p.to){ $('st-err').textContent = 'Дата «з» пізніша за дату «по».'; return; }
+    $('st-out').innerHTML = '<div class="card"><span class="muted">Рахую…</span></div>';
+    google.script.run.withSuccessHandler(function(r){
+      if (!r || r.error){ $('st-out').innerHTML = ''; $('st-err').textContent = r ? r.error : 'Помилка'; return; }
+      $('st-out').innerHTML = statementHtml(r);
+    }).withFailureHandler(function(e){ $('st-out').innerHTML = ''; $('st-err').textContent = e.message; })
+    .api_admin_statement(ADMIN, p);
+  }
+  function statementHtml(r){
+    var cls = function(v){ return v < 0 ? 'neg' : v > 0 ? 'pos' : ''; };
+    var h = '<div class="card"><h2>Виписка · ' + esc(r.name) + ' <span class="muted">' + esc(r.fromLabel) + ' — ' + esc(r.toLabel) + '</span></h2>' +
+      '<div class="sumgrid">' +
+        '<div><span>Баланс на ' + esc(r.fromLabel) + '</span><b class="' + cls(r.opening) + '">' + uah(r.opening, true) + '</b></div>' +
+        '<div><span>Оплачено за період</span><b class="pos">' + uah(r.paid, true) + '</b></div>' +
+        '<div><span>Харчування за період</span><b>' + uah(-r.charged, true) + '</b></div>' +
+        '<div><span>Баланс на ' + esc(r.toLabel) + '</span><b class="' + cls(r.closing) + '">' + uah(r.closing, true) + '</b></div>' +
+      '</div></div>';
+    if (!r.rows.length) return h + '<div class="card"><span class="muted">За цей період немає ні харчування, ні оплат.</span></div>';
+    h += '<div class="card">';
+    r.rows.forEach(function(x){
+      var desc;
+      if (x.kind === 'pay') desc = '💳 Оплата' + (x.comment ? ' · ' + esc(x.comment) : '');
+      else {
+        desc = x.items.length ? x.items.map(function(i){
+          return '<span class="mi"><b class="' + (i.v === '№1' ? 'v1' : 'v2') + '">' + esc(i.v) + '</b>' + esc(i.meal) + ' ' + i.price + '</span>';
+        }).join('') : '<span class="muted">нічого не замовлено</span>';
+        if (x.fix) desc += '<div class="fx">коригування суми тижня (ручна правка «Суми» в «Замовленнях»): ' + uah(-x.fix, true) + '</div>';
+        (x.changes || []).forEach(function(c){
+          desc += '<div class="ch' + (c.late ? ' late' : '') + '">змінено ' + esc(c.when) + ': ' + esc(c.text) + (c.late ? ' · після дедлайну' : '') + '</div>';
+        });
+      }
+      h += '<div class="srow' + (x.kind === 'pay' ? ' pay' : '') + (x.future ? ' future' : '') + '">' +
+        '<div class="dt">' + esc(x.label) + (x.future ? '<small>наперед</small>' : '') + '</div>' +
+        '<div class="ds">' + desc + '</div>' +
+        '<div class="am ' + cls(x.amount) + '">' + (x.amount ? uah(x.amount, true) : '0 грн') + '<small>залишок ' + uah(x.balance, true) + '</small></div>' +
+      '</div>';
+    });
+    h += '<button class="btn sec" style="margin-top:12px" onclick="window.print()">🖨 Друк / PDF</button></div>';
+    return h;
+  }
+
   // ---- оплата ----
   function addPayment(){
     $('pay-ok').textContent = ''; $('pay-err').textContent = '';
@@ -469,6 +597,7 @@
   $('n-cls').innerHTML = clsOptions('');
   $('tday').value = todayStr();
   $('pay-date').value = todayStr();
+  setPreset('month');
   loadToday();
 </script>
 </body>

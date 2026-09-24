@@ -63,6 +63,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Оновити «Зведення» і «Баланс»', 'refreshAll')
     .addItem('Позначити зміни як передані кейтерингу', 'markChangesSent')
+    .addItem('Передати кейтерингу: скопіювати в їхню таблицю', 'exportToCatering')
     .addSeparator()
     .addItem('Показати посилання на адмін-панель', 'showAdminLink')
     .addItem('Увімкнути нагадування та email-сповіщення', 'installTriggers')
@@ -124,6 +125,9 @@ function setupSheets() {
     'Нагадування: за годин до дедлайну',
     'URL веб-додатку',
     'Адмін-токен',
+    'Кейтеринг: таблиця (посилання)',
+    'Кейтеринг: лист для зведення',
+    'Кейтеринг: лист для замовлень по дітях',
   ];
   const DEFAULTS = {
     'Дедлайн: днів до понеділка': 1,
@@ -132,6 +136,8 @@ function setupSheets() {
     'Тиждень закрито': 'ні',
     'Нагадування: за годин до дедлайну': 2,
     'Адмін-токен': newToken(16),
+    'Кейтеринг: лист для зведення': 'Зведення {тиждень}',
+    'Кейтеринг: лист для замовлень по дітях': 'Діти {тиждень}',
   };
   const RENAME = { 'Дедлайн (час)': 'Дедлайн: час' };
   const OBSOLETE = ['Дедлайн (дата і час)', 'Дедлайн (дата)'];
@@ -171,6 +177,9 @@ function setupSheets() {
       .setHelpText('За скільки годин до дедлайну надсилати email тим, хто ще не замовив').build()],
     'URL веб-додатку': ['@', null],
     'Адмін-токен': ['@', null],
+    'Кейтеринг: таблиця (посилання)': ['@', null],
+    'Кейтеринг: лист для зведення': ['@', null],
+    'Кейтеринг: лист для замовлень по дітях': ['@', null],
   };
   st.getRange(1, 1, st.getLastRow(), 1).getValues().forEach((r, i) => {
     const f = CELL_FORMATS[String(r[0]).trim()];
@@ -391,6 +400,9 @@ function getSettings() {
     dayLabels: mondayYmd ? DAYS.map((n, i) => n + ' ' + dm(ymdAdd(mondayYmd, i))) : [],
     appUrl: String(map['URL веб-додатку'] || '').trim(),
     adminToken: String(map['Адмін-токен'] || '').trim(),
+    cateringUrl: String(map['Кейтеринг: таблиця (посилання)'] || '').trim(),
+    cateringSummaryTab: exportTabName(map['Кейтеринг: лист для зведення'], 'Зведення {тиждень}'),
+    cateringKidsTab: exportTabName(map['Кейтеринг: лист для замовлень по дітях'], 'Діти {тиждень}'),
     remindHours: (typeof map['Нагадування: за годин до дедлайну'] === 'number') ? map['Нагадування: за годин до дедлайну'] : 2,
     pastDeadline: !!(deadline && new Date() > deadline),
     deadlineText: deadline ? fmtDl(deadline) : '',
@@ -654,12 +666,23 @@ function logChanges(st, name, contact, parts) {
 function markChangesSent() {
   const sh = sheet(SHEETS.LOG);
   if (!sh || sh.getLastRow() < 2) { SpreadsheetApp.getUi().alert('Журнал змін порожній.'); return; }
-  const rng = sh.getRange(2, 7, sh.getLastRow() - 1, 1);
+  const n = markSent('', true);
+  SpreadsheetApp.getUi().alert(n ? 'Позначено переданими: ' + n + ' змін.' : 'Непереданих змін немає.');
+}
+
+/** Кількість непозначених змін (weekLabel порожній = усі тижні); write=true — ще й позначає їх «так». */
+function markSent(weekLabel, write) {
+  const sh = sheet(SHEETS.LOG);
+  if (!sh || sh.getLastRow() < 2) return 0;
+  const rng = sh.getRange(2, 1, sh.getLastRow() - 1, 7);
   const vals = rng.getValues();
   let n = 0;
-  vals.forEach(r => { if (!String(r[0]).trim()) { r[0] = 'так'; n++; } });
-  rng.setValues(vals);
-  SpreadsheetApp.getUi().alert(n ? 'Позначено переданими: ' + n + ' змін.' : 'Непереданих змін немає.');
+  vals.forEach(r => {
+    if (String(r[6]).trim() || (weekLabel && String(r[1]) !== weekLabel)) return;
+    r[6] = 'так'; n++;
+  });
+  if (write && n) sh.getRange(2, 7, vals.length, 1).setValues(vals.map(r => [r[6]]));
+  return n;
 }
 
 // ---------------------------------------------------------------- переїзд зі старої системи
@@ -810,6 +833,159 @@ function computeBalances(excludeWeek) {
     });
   }
   return acc;
+}
+
+// ---------------------------------------------------------------- виписка за період
+
+const WD_SHORT = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+const ymdKey = o => o.y * 10000 + o.mo * 100 + o.d;
+const ymdStr = o => o.y + '-' + pad2(o.mo) + '-' + pad2(o.d);
+function parseYmd(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || '').trim());
+  return m ? { y: +m[1], mo: +m[2], d: +m[3] } : null;
+}
+function ymdDiff(a, b) { return Math.round((Date.UTC(a.y, a.mo - 1, a.d) - Date.UTC(b.y, b.mo - 1, b.d)) / 864e5); }
+
+/**
+ * Ярлик тижня «07.09-11.09» не містить року. Відновлюємо його за датою поруч
+ * (коли збережено замовлення / записано зміну): з трьох кандидатних років беремо
+ * той, де ця дата — понеділок і найближча до «поруч». Переходи через Новий рік теж працюють.
+ */
+function mondayFromLabel(label, near) {
+  const m = /^(\d{2})\.(\d{2})-/.exec(String(label || '').trim());
+  if (!m) return null;
+  const ref = ymdOf(near instanceof Date ? near : new Date());
+  let best = null, bestScore = Infinity;
+  [ref.y - 1, ref.y, ref.y + 1].forEach(y => {
+    const c = { y: y, mo: +m[2], d: +m[1] };
+    const score = Math.abs(ymdDiff(c, ref)) + (ymdWeekday(c) === 1 ? 0 : 10000);
+    if (score < bestScore) { bestScore = score; best = c; }
+  });
+  return best;
+}
+
+/**
+ * Виписка по дитині за [from, to]:
+ *  - нарахування по днях харчування (не по даті замовлення) з фінального стану тижня;
+ *  - якщо «Сума» тижня в «Замовленнях» відрізняється від розрахунку (ручна правка) — різниця
+ *    окремим коригуванням в останній день тижня, тож підсумок завжди збігається з листом «Баланс»;
+ *  - оплати за їхньою датою (без дати — вважаються давніми, входять у баланс на початок);
+ *  - історія змін з «Журналу змін», прив'язана до дня, якого вона стосується.
+ */
+function buildStatement(name, from, to) {
+  const days = {};
+  const dayOf = ymd => (days[ymdKey(ymd)] = days[ymdKey(ymd)] ||
+    { ymd: ymd, charge: 0, items: [], changes: [], fix: 0 });
+
+  const oSh = sheet(SHEETS.ORDERS);
+  if (oSh && oSh.getLastRow() > 1) {
+    oSh.getRange(2, 1, oSh.getLastRow() - 1, orderHeaders().length).getValues().forEach(r => {
+      if (String(r[1]).trim() !== name) return;
+      const mon = mondayFromLabel(r[0], r[18]);
+      if (!mon) return;
+      const prices = getPrices(mon);
+      let calc = 0, last = null;
+      for (let d = 0; d < 5; d++) for (let m = 0; m < 3; m++) {
+        const c = String(r[2 + d * 3 + m]);
+        if (c !== '№1' && c !== '№2') continue;
+        const ymd = ymdAdd(mon, d), price = prices[MEALS[m]] || 0, e = dayOf(ymd);
+        e.charge += price; e.items.push({ meal: MEALS[m], v: c, price: price });
+        calc += price; last = ymd;
+      }
+      const diff = (Number(r[17]) || 0) - calc;
+      if (diff) { const e = dayOf(last || ymdAdd(mon, 4)); e.charge += diff; e.fix += diff; }
+    });
+  }
+
+  const pays = [];
+  const pSh = sheet(SHEETS.PAYMENTS);
+  if (pSh && pSh.getLastRow() > 1) {
+    pSh.getRange(2, 1, pSh.getLastRow() - 1, 4).getValues().forEach(r => {
+      if (String(r[1]).trim() !== name) return;
+      const sum = Number(r[2]) || 0;
+      if (!sum) return;
+      pays.push({ ymd: r[0] instanceof Date ? ymdOf(r[0]) : null, sum: sum, comment: String(r[3] || '').trim() });
+    });
+  }
+
+  const lSh = sheet(SHEETS.LOG);
+  if (lSh && lSh.getLastRow() > 1) {
+    lSh.getRange(2, 1, lSh.getLastRow() - 1, 6).getValues().forEach(r => {
+      if (String(r[2]).trim() !== name) return;
+      const when = r[0] instanceof Date ? r[0] : null;
+      const mon = mondayFromLabel(r[1], when);
+      if (!mon) return;
+      const late = String(r[5]).trim() === 'так';
+      String(r[4] || '').split(/;\s*/).forEach(part => {
+        const mm = /^(Пн|Вт|Ср|Чт|Пт)\s+(Сніданок|Обід|Підвечірок):\s*(.+)$/.exec(part.trim());
+        if (!mm) return;
+        dayOf(ymdAdd(mon, DAY_SHORT.indexOf(mm[1]))).changes.push({
+          at: when ? when.getTime() : 0,
+          when: when ? Utilities.formatDate(when, TZ, 'dd.MM HH:mm') : '',
+          text: mm[2] + ': ' + mm[3],
+          late: late,
+        });
+      });
+    });
+  }
+
+  const fk = ymdKey(from), tk = ymdKey(to), today = ymdKey(ymdOf(new Date()));
+  const label = ymd => WD_SHORT[ymdWeekday(ymd)] + ' ' + dm(ymd);
+  let opening = 0;
+  Object.keys(days).forEach(k => { if (+k < fk) opening -= days[k].charge; });
+  pays.forEach(p => { if (!p.ymd || ymdKey(p.ymd) < fk) opening += p.sum; });
+
+  const rows = [];
+  pays.forEach(p => {
+    if (!p.ymd || ymdKey(p.ymd) < fk || ymdKey(p.ymd) > tk) return;
+    rows.push({ k: ymdKey(p.ymd), o: 0, kind: 'pay', date: ymdStr(p.ymd), label: label(p.ymd), amount: p.sum, comment: p.comment });
+  });
+  Object.keys(days).forEach(k => {
+    if (+k < fk || +k > tk) return;
+    const e = days[k];
+    if (!e.charge && !e.changes.length) return;
+    e.changes.sort((a, b) => a.at - b.at);
+    rows.push({
+      k: +k, o: 1, kind: 'day', date: ymdStr(e.ymd), label: label(e.ymd), amount: -e.charge,
+      items: e.items, fix: e.fix, future: +k > today,
+      changes: e.changes.map(c => ({ when: c.when, text: c.text, late: c.late })),
+    });
+  });
+  rows.sort((a, b) => a.k - b.k || a.o - b.o);
+
+  let bal = opening, paid = 0, charged = 0;
+  rows.forEach(r => {
+    bal += r.amount;
+    r.balance = bal;
+    if (r.kind === 'pay') paid += r.amount; else charged -= r.amount;
+    delete r.k; delete r.o;
+  });
+  return {
+    ok: true, name: name, from: ymdStr(from), to: ymdStr(to),
+    fromLabel: dm(from) + '.' + from.y, toLabel: dm(to) + '.' + to.y,
+    opening: opening, paid: paid, charged: charged, closing: bal, rows: rows,
+  };
+}
+
+function statementRange(p) {
+  const today = ymdOf(new Date());
+  const from = parseYmd(p.from) || { y: today.y, mo: today.mo, d: 1 };
+  const to = parseYmd(p.to) || today;
+  if (ymdKey(from) > ymdKey(to)) return { error: 'Дата «з» пізніша за дату «по».' };
+  return { from: from, to: to };
+}
+
+/** Виписка для батьків: лише для дитини, прив'язаної до контакту. p = {key, child, from, to} */
+function api_statement(p) {
+  try {
+    p = p || {};
+    const contact = resolveContact(p);
+    if (!contact) return { error: 'Сесію не розпізнано. Оновіть сторінку.' };
+    if (!childrenByContact(contact).some(k => k.name === p.child)) return { error: 'Ця дитина не прив’язана до вашого контакту.' };
+    const rg = statementRange(p);
+    if (rg.error) return rg;
+    return buildStatement(p.child, rg.from, rg.to);
+  } catch (err) { return { error: 'Помилка: ' + err.message }; }
 }
 
 // ---------------------------------------------------------------- API для батьків
@@ -995,6 +1171,19 @@ function api_admin_today(token, dateStr, classes) {
       answered: shown.filter(k => !!orders[k.name]).length,
       total: shown.length,
     };
+  } catch (err) { return { error: 'Помилка: ' + err.message }; }
+}
+
+/** Виписка для адміністратора — по будь-якій дитині зі «Списку», включно з архівом. */
+function api_admin_statement(token, p) {
+  try {
+    if (!adminOk(token)) return { error: 'Немає доступу.' };
+    p = p || {};
+    const name = String(p.name || '').trim();
+    if (!roster().some(k => k.name === name)) return { error: 'Оберіть дитину зі списку.' };
+    const rg = statementRange(p);
+    if (rg.error) return rg;
+    return buildStatement(name, rg.from, rg.to);
   } catch (err) { return { error: 'Помилка: ' + err.message }; }
 }
 
@@ -1196,13 +1385,12 @@ function colLetter(n) {
   return out;
 }
 
-function refreshSummary() {
-  const st = getSettings();
-  const sh = sheet(SHEETS.SUMMARY, true);
-  sh.clear();
-  if (!st.monday) { sh.getRange(1, 1).setValue('Тиждень не налаштовано.'); return; }
-
-  const GREEN = '#93c47d', PEACH = '#fce5cd';
+/**
+ * Сітка «Зведення»: 5 блоків «День | Підрахунки».
+ * counts = null → формули COUNTIFS (живий лист у нашій таблиці);
+ * counts = [15 × {'№1': n, '№2': n}] → готові числа (для передачі в чужу таблицю).
+ */
+function summaryGrid(st, counts) {
   const BLOCK_W = 2, GAP = 1, STRIDE = BLOCK_W + GAP; // колонки на день + вузька колонка-роздільник
   const ORD = "'" + SHEETS.ORDERS + "'";              // лист-джерело для формул
   const grid = [];
@@ -1219,17 +1407,19 @@ function refreshSummary() {
       const col = colLetter(3 + d * 3 + m);
       ['№1', '№2'].forEach(v => {
         put(r, c0, meal + ' ' + v);
-        put(r, c0 + 1, '=COUNTIFS(' + ORD + '!$A:$A,"' + st.weekLabel + '",' +
-          ORD + '!' + col + ':' + col + ',"' + v + '")');
+        put(r, c0 + 1, counts ? (counts[d * 3 + m][v] || 0)
+          : '=COUNTIFS(' + ORD + '!$A:$A,"' + st.weekLabel + '",' + ORD + '!' + col + ':' + col + ',"' + v + '")');
         r++;
       });
     });
   });
 
-  const rows = grid.length, cols = 5 * STRIDE - 1;
-  const norm = grid.map(r => { const a = (r || []).slice(0, cols); while (a.length < cols) a.push(''); return a; });
-  sh.getRange(1, 1, rows, cols).setValues(norm);
+  const cols = 5 * STRIDE - 1;
+  return grid.map(r => { const a = (r || []).slice(0, cols); while (a.length < cols) a.push(''); return a; });
+}
 
+function formatSummary(sh, cols) {
+  const GREEN = '#93c47d', PEACH = '#fce5cd', STRIDE = 3;
   for (let d = 0; d < 5; d++) {
     const c0 = d * STRIDE + 1; // 1-indexed колонка «День»
     sh.getRange(1, c0).setBackground(GREEN).setFontWeight('bold').setFontStyle('italic');
@@ -1238,8 +1428,27 @@ function refreshSummary() {
     [3, 4, 6, 7, 9, 10].forEach(r => sh.getRange(r, c0).setFontWeight('bold').setFontStyle('italic'));
   }
   sh.setColumnWidths(1, cols, 92);
-  for (let d = 0; d < 4; d++) sh.setColumnWidth(d * STRIDE + BLOCK_W + 1, 18); // вузькі роздільники
+  for (let d = 0; d < 4; d++) sh.setColumnWidth(d * STRIDE + 3, 18); // вузькі роздільники
   sh.setFrozenRows(1);
+}
+
+/** Кількість порцій тижня по кожному з 15 прийомів — так само, як рахують формули «Зведення». */
+function countsForWeek(weekLabel) {
+  const counts = [];
+  for (let i = 0; i < 15; i++) counts.push({ '№1': 0, '№2': 0 });
+  const orders = ordersForWeek(weekLabel);
+  Object.keys(orders).forEach(n => orders[n].forEach((c, i) => { if (counts[i][c] !== undefined) counts[i][c]++; }));
+  return counts;
+}
+
+function refreshSummary() {
+  const st = getSettings();
+  const sh = sheet(SHEETS.SUMMARY, true);
+  sh.clear();
+  if (!st.monday) { sh.getRange(1, 1).setValue('Тиждень не налаштовано.'); return; }
+  const g = summaryGrid(st, null);
+  sh.getRange(1, 1, g.length, g[0].length).setValues(g);
+  formatSummary(sh, g[0].length);
 }
 
 function refreshBalance() {
@@ -1251,6 +1460,127 @@ function refreshBalance() {
   names.forEach(n => out.push([n, bal[n].ordered, bal[n].paid, bal[n].paid - bal[n].ordered]));
   sh.getRange(1, 1, out.length, 4).setValues(out);
   sh.setFrozenRows(1);
+}
+
+// ---------------------------------------------------------------- передача кейтерингу (ручний запуск)
+
+// мітка в нотатці A1 листів, які створила ця система в чужій таблиці: лише їх дозволено перезаписувати
+const EXPORT_MARK = 'Створено системою «Харчування Онлайн»';
+
+/** Назва листа з налаштувань: порожньо → типова, «ні» / «—» → не передавати. */
+function exportTabName(v, def) {
+  const s = String(v === undefined || v === null ? '' : v).trim();
+  if (/^(ні|—|-|no)$/i.test(s)) return '';
+  return s || def;
+}
+
+function fillWeek(tpl, st) { return String(tpl || '').replace(/\{тиждень\}/g, st.weekLabel).trim(); }
+
+function openTarget(urlOrId) {
+  const v = String(urlOrId || '').trim();
+  return v.indexOf('/d/') !== -1 ? SpreadsheetApp.openByUrl(v) : SpreadsheetApp.openById(v);
+}
+
+function isOurTab(sh) {
+  try { return String(sh.getRange(1, 1).getNote() || '').indexOf(EXPORT_MARK) === 0; } catch (e) { return false; }
+}
+
+/** Таблиця для кейтерингу: № | ПІБ | Клас | 15 виборів | Примітка (алергії тощо). */
+function kidsGrid(st) {
+  const orders = ordersForWeek(st.weekLabel);
+  const byName = {};
+  roster().forEach(k => { byName[k.name] = k; });
+  // активні діти + ті, в кого є замовлення на тиждень (навіть якщо вже в архіві) — щоб збігалося зі «Зведенням»
+  const names = Object.keys(byName).filter(n => byName[n].active);
+  Object.keys(orders).forEach(n => { if (names.indexOf(n) === -1) names.push(n); });
+  const clsOf = n => (byName[n] && byName[n].cls) || '';
+  names.sort((a, b) => (clsOf(a) || 'яяя').localeCompare(clsOf(b) || 'яяя', 'uk') || a.localeCompare(b, 'uk'));
+  const head = ['№', 'ПІБ', 'Клас'].concat(orderHeaders().slice(2, 17)).concat(['Примітка']);
+  return [head].concat(names.map((n, i) => [i + 1, n, clsOf(n)]
+    .concat(orders[n] || Array(15).fill(NONE))
+    .concat([(byName[n] && byName[n].note) || ''])));
+}
+
+function formatKids(sh, g) {
+  const W = g[0].length;
+  sh.getRange(1, 1, 1, W).setFontWeight('bold').setBackground('#93c47d');
+  if (g.length > 1) {
+    const bg = g.slice(1).map(r => r.map((v, j) => (j >= 3 && j < 18)
+      ? (v === '№1' ? '#fde3c8' : v === '№2' ? '#d9ead3' : null) : null));
+    sh.getRange(2, 1, g.length - 1, W).setBackgrounds(bg);
+  }
+  sh.setFrozenRows(1);
+  sh.setColumnWidth(1, 36);
+  sh.setColumnWidth(2, 220);
+  sh.setColumnWidth(3, 50);
+  sh.setColumnWidths(4, 15, 92);
+  sh.setColumnWidth(W, 320);
+}
+
+/**
+ * Пункт меню: копіює «Зведення» (числами) і замовлення по дітях активного тижня в таблицю кейтерингу.
+ * Пише лише в листи, які створила сама (мітка в нотатці A1) або яких ще немає, — чужі дані не чіпає.
+ */
+function exportToCatering() {
+  const ui = SpreadsheetApp.getUi();
+  const st = getSettings();
+  if (!st.monday) { ui.alert('Спочатку вкажіть «Понеділок тижня (дата)» в «Налаштуваннях».'); return; }
+  if (!st.cateringUrl) {
+    ui.alert('Не вказано таблицю кейтерингу.\n\n«Налаштування» → «Кейтеринг: таблиця (посилання)» — вставте посилання на їхню Google-таблицю.\n' +
+      'Якщо цього рядка немає — спершу запустіть пункт меню 1.');
+    return;
+  }
+  const plan = [
+    { kind: 'summary', name: fillWeek(st.cateringSummaryTab, st), what: 'кількість порцій' },
+    { kind: 'kids', name: fillWeek(st.cateringKidsTab, st), what: 'замовлення по дітях' },
+  ].filter(t => t.name);
+  if (!plan.length) { ui.alert('Обидва листи для передачі вимкнені («ні») у «Налаштуваннях».'); return; }
+  if (plan.length === 2 && plan[0].name === plan[1].name) { ui.alert('Назви листів для зведення і для дітей однакові — зробіть їх різними.'); return; }
+
+  let target;
+  try { target = openTarget(st.cateringUrl); }
+  catch (e) {
+    ui.alert('Не вдалося відкрити таблицю кейтерингу:\n' + e.message + '\n\nПеревірте посилання і що акаунт ' +
+      Session.getEffectiveUser().getEmail() + ' має до неї доступ «Редактор».');
+    return;
+  }
+  if (target.getId() === ss().getId()) { ui.alert('Посилання веде на цю саму таблицю. Вкажіть таблицю кейтерингу.'); return; }
+
+  plan.forEach(t => { const sh = target.getSheetByName(t.name); t.exists = !!sh; t.ours = !sh || isOurTab(sh); });
+  const foreign = plan.filter(t => !t.ours);
+  if (foreign.length) {
+    ui.alert('Передачу зупинено',
+      'У таблиці «' + target.getName() + '» уже є ' + foreign.map(t => '«' + t.name + '»').join(', ') +
+      ' — цей лист створено не нашою системою, тому перезаписувати його не буду, щоб не зіпсувати чужі дані.\n\n' +
+      'Змініть назву листа в «Налаштуваннях» (наприклад, додайте «{тиждень}») або перейменуйте той лист у таблиці кейтерингу.',
+      ui.ButtonSet.OK);
+    return;
+  }
+
+  const ok = ui.alert('Передати кейтерингу',
+    'Таблиця: ' + target.getName() + '\nТиждень: ' + st.weekLabel + '\n\n' +
+    plan.map(t => '• «' + t.name + '» — ' + t.what + ' — ' + (t.exists ? 'буде оновлено' : 'буде створено')).join('\n') +
+    '\n\nІнші листи їхньої таблиці не змінюються. Продовжити?', ui.ButtonSet.OK_CANCEL);
+  if (ok !== ui.Button.OK) return;
+
+  const stamp = Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH:mm');
+  plan.forEach(t => {
+    const sh = target.getSheetByName(t.name) || target.insertSheet(t.name);
+    sh.clear();
+    const g = t.kind === 'summary' ? summaryGrid(st, countsForWeek(st.weekLabel)) : kidsGrid(st);
+    sh.getRange(1, 1, g.length, g[0].length).setValues(g);
+    if (t.kind === 'summary') formatSummary(sh, g[0].length); else formatKids(sh, g);
+    sh.getRange(1, 1).setNote(EXPORT_MARK + '\nТиждень ' + st.weekLabel + '\nОновлено ' + stamp +
+      '\nЛист перезаписується при кожній передачі — не вносьте сюди власних правок.');
+  });
+
+  const pending = markSent(st.weekLabel, false);
+  const done = 'Передано в «' + target.getName() + '»: ' + plan.map(t => '«' + t.name + '»').join(', ') + '.\n' + target.getUrl();
+  if (pending) {
+    const r = ui.alert('Готово', done + '\n\nУ «Журналі змін» ' + pending + ' непозначених змін за цей тиждень — ' +
+      'вони вже враховані в переданих даних. Позначити їх як передані?', ui.ButtonSet.YES_NO);
+    if (r === ui.Button.YES) markSent(st.weekLabel, true);
+  } else ui.alert('Готово', done, ui.ButtonSet.OK);
 }
 
 // ---------------------------------------------------------------- веб-додаток
