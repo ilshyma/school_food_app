@@ -52,6 +52,8 @@ nav_order: 10
 | `api_admin_roster(token)` | адмін | усі діти з балансами |
 | `api_admin_saveChild(token, c)` | адмін | `c.row` є → оновлення (перевірка `c.orig`, перейменування з перенесенням історії), немає → додавання |
 | `api_admin_addPayment(token, p)` | адмін | рядок в «Оплати», перерахунок, лист |
+| `api_statement(p)` | батьки | `p = {key, child, from, to}` (`yyyy-MM-dd`) → виписка; перевіряє прив'язку дитини |
+| `api_admin_statement(token, p)` | адмін | `p = {name, from, to}` → виписка по будь-якій дитині зі «Списку» |
 
 Усі повертають `{error: '…'}` замість винятків — клієнт показує текст як є.
 
@@ -63,6 +65,28 @@ nav_order: 10
 - `resolveContact({auto})` пробує `Session.getActiveUser()` — працює лише в межах одного домену Workspace.
 - Вебдодаток виконується від імені власника («Execute as: Me»), тому доступ до таблиці батькам не потрібен.
 - Увесь вивід у HTML проходить через `esc()`.
+
+## Виписка
+
+`buildStatement(name, from, to)`:
+
+- нарахування — з «Замовлень» по днях (`ymdAdd(monday, d)`), ціни — `getPrices(monday)`;
+- різниця між замороженою «Сумою» (R) і розрахунком → поле `fix` в останній день харчування тижня,
+  тож `closing` за весь час = `computeBalances()`;
+- рік тижня — `mondayFromLabel(label, near)`: ярлик `dd.MM-…` + дата поруч (колонка «Оновлено» / «Час» журналу);
+  з років `near±1` обирає той, де дата — понеділок і найближча;
+- оплати без дати → у `opening`;
+- зміни з «Журналу змін» парсяться з тексту `Вт Обід: №1 → —` і прив'язуються до дня.
+
+Відповідь: `{opening, paid, charged, closing, rows:[{kind:'day'|'pay', date, label, amount, balance, items, changes, fix, future, comment}]}`.
+Рендер — у `statementHtml()` обох HTML (копія, бо файли незалежні).
+
+## Передача кейтерингу
+
+`exportToCatering()` (пункт меню): `openTarget()` → перевірка, що це не наша таблиця → для кожного листа
+перевірка `isOurTab()` (нотатка A1 починається з `EXPORT_MARK`); чужий лист — зупинка. Дані:
+`summaryGrid(st, countsForWeek())` (та сама сітка, що й «Зведення», але числами) і `kidsGrid(st)`.
+`SpreadsheetApp.openByUrl` потребує повного дозволу `spreadsheets` — перший запуск може попросити переавторизацію.
 
 ## Тригери
 
