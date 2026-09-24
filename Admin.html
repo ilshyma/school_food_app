@@ -390,7 +390,7 @@
       '<div class="kc-actions"><button class="btn ghost">Скасувати</button><button class="btn">Зберегти</button></div>';
     var btns = card.querySelectorAll('.kc-actions .btn');
     btns[0].onclick = function(){ editingRow = 0; renderRoster(); };
-    btns[1].onclick = function(){ saveCard(card, k.row, btns[1]); };
+    btns[1].onclick = function(){ saveCard(card, k.row, btns[1], k.name); };
     return card;
   }
 
@@ -400,8 +400,8 @@
     return d;
   }
 
-  function saveCard(card, row, btn){
-    var d = cardData(card); d.row = row;
+  function saveCard(card, row, btn, orig){
+    var d = cardData(card); d.row = row; d.orig = orig; // orig — захист від збереження в чужий рядок
     btn.disabled = true; btn.textContent = '…';
     google.script.run.withSuccessHandler(function(r){
       if (!r || r.error){ $('kids-err').textContent = r ? r.error : 'Помилка'; btn.disabled = false; btn.textContent = 'Зберегти'; return; }

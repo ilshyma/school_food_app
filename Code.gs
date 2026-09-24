@@ -916,8 +916,10 @@ function api_save(p) {
     try {
       upsertOrder(st.weekLabel, p.child, choices, sum, contact);
       logChanges(st, p.child, contact, parts);
+      refreshBalance();
+      // «Зведення» — живі формули, перебудова потрібна лише коли змінився активний тиждень
+      if (summaryStale(st)) refreshSummary();
     } finally { lock.releaseLock(); }
-    refreshAll();
     return { ok: true, sum };
   } catch (err) { return { error: 'Помилка збереження: ' + err.message }; }
 }
@@ -1023,13 +1025,39 @@ function api_admin_saveChild(token, c) {
       /архів/i.test(String(c.status || '')) ? 'архів' : 'активний',
       String(c.email1 || '').trim(), String(c.email2 || '').trim(), String(c.note || '').trim()];
     const r = Number(c.row) || 0;
-    if (r >= 2 && r <= sh.getLastRow()) sh.getRange(r, 1, 1, row.length).setValues([row]);
-    else {
+    if (r >= 2 && r <= sh.getLastRow()) {
+      // картка в панелі могла застаріти (лист відсортували / рядок видалили) — звіряємо ПІБ рядка
+      const was = String(sh.getRange(r, 1).getValue() || '').trim();
+      const orig = String(c.orig || '').trim();
+      if (orig && was !== orig) return { error: 'Список змінився, поки картка була відкрита. Оновіть сторінку й повторіть.' };
+      if (name !== was) {
+        if (roster().some(k => k.name === name)) return { error: 'Дитина з таким ПІБ уже є у списку.' };
+        renameEverywhere(was, name); // ПІБ — ключ: переносимо замовлення, оплати й журнал на нове ім'я
+      }
+      sh.getRange(r, 1, 1, row.length).setValues([row]);
+    } else {
       if (roster().some(k => k.name === name)) return { error: 'Дитина з таким ПІБ уже є у списку.' };
       sh.appendRow(row);
     }
     return api_admin_roster(token);
   } catch (err) { return { error: 'Помилка: ' + err.message }; }
+}
+
+/** Замінює ПІБ у «Замовленнях», «Оплатах» і «Журналі змін», щоб історія й баланс не загубилися. */
+function renameEverywhere(oldName, newName) {
+  if (!oldName || oldName === newName) return 0;
+  let n = 0;
+  [[SHEETS.ORDERS, 2], [SHEETS.PAYMENTS, 2], [SHEETS.LOG, 3]].forEach(([nm, col]) => {
+    const sh = sheet(nm);
+    if (!sh || sh.getLastRow() < 2) return;
+    const rng = sh.getRange(2, col, sh.getLastRow() - 1, 1);
+    const vals = rng.getValues();
+    let changed = false;
+    vals.forEach(v => { if (String(v[0]).trim() === oldName) { v[0] = newName; changed = true; n++; } });
+    if (changed) rng.setValues(vals);
+  });
+  refreshBalance();
+  return n;
 }
 
 function api_admin_addPayment(token, p) {
@@ -1142,6 +1170,13 @@ function installTriggers() {
 }
 
 // ---------------------------------------------------------------- зведення і баланс
+
+/** «Зведення» зібране під інший тиждень (адмін змінив понеділок) або ще не створене. */
+function summaryStale(st) {
+  const sh = sheet(SHEETS.SUMMARY);
+  if (!sh || sh.getLastRow() === 0) return true;
+  return String(sh.getRange(1, 1).getDisplayValue()).trim() !== String(st.dayLabels[0] || '').trim();
+}
 
 function refreshAll() {
   refreshSummary();
@@ -1297,7 +1332,8 @@ function seedRosterDemo() {
   const have = {};
   roster().forEach(k => { have[k.name.trim().toLowerCase()] = true; });
   const toAdd = SCHOOL_IMPORT.filter(r => !have[r[0].trim().toLowerCase()]);
-  toAdd.forEach(r => sh.appendRow([r[0], '', '', 'активний', r[1], '', '']));
+  // ПІБ | Клас | Телефон 1 | Телефон 2 | Статус | Email 1 | Email 2 | Примітка
+  toAdd.forEach(r => sh.appendRow([r[0], '', '', '', 'активний', '', '', r[1]]));
   SpreadsheetApp.getUi().alert('Додано дітей: ' + toAdd.length + ' (пропущено як дублі: ' + (SCHOOL_IMPORT.length - toAdd.length) + ').');
 }
 

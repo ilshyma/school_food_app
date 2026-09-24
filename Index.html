@@ -146,8 +146,8 @@
       <button class="navbtn primary" id="btn-next" onclick="goDay(curDay+1)">Далі →</button>
     </div>
     <div class="card linkbox hidden" id="linkbox">
-      Ваше персональне посилання — збережіть, щоб наступного разу входити без телефону:
-      <br><button onclick="copyLink()">📋 Скопіювати посилання</button><button onclick="logout()">Вийти</button>
+      <span id="link-text">Ваше персональне посилання — збережіть, щоб наступного разу входити без телефону:<br></span>
+      <button id="btn-copy" onclick="copyLink()">📋 Скопіювати посилання</button><button onclick="logout()">Вийти</button>
     </div>
   </div>
 </div>
@@ -232,7 +232,11 @@
       b.textContent = d.week.bannerText;
       b.classList.remove('hidden');
     } else b.classList.add('hidden');
-    if (d.appUrl && d.token) $('linkbox').classList.remove('hidden');
+    // «Вийти» потрібне завжди (спільний пристрій), копіювання — лише коли відомий URL
+    var hasLink = !!(d.appUrl && d.token);
+    $('link-text').classList.toggle('hidden', !hasLink);
+    $('btn-copy').classList.toggle('hidden', !hasLink);
+    $('linkbox').classList.remove('hidden');
     if (state.children.length > 1) renderChooser();
     else openChild(0);
   }
