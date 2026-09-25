@@ -712,7 +712,7 @@ function loadMenu(st, label, forceManual) {
     let book;
     try { book = openTarget(st.cateringUrl); }
     catch (e) {
-      res.errors.push('Не вдалося відкрити таблицю кейтерингу: ' + e.message + '. Перевірте посилання і доступ акаунта ' + ownerEmail() + '.');
+      res.errors.push(cateringOpenError(e));
       res.canFallback = true; return res;
     }
     const name = String(st.cateringMenuTab).replace(/\{тиждень\}/g, label).trim();
@@ -1775,6 +1775,14 @@ function openTarget(urlOrId) {
 
 function gidFromUrl(u) { const m = /[#&?]gid=(\d+)/.exec(String(u || '')); return m ? +m[1] : null; }
 
+/** Пояснення, чому не відкрилась таблиця кейтерингу, — з підказкою для файлу Excel (.xlsx) у Drive. */
+function cateringOpenError(e) {
+  return 'Не вдалося відкрити таблицю кейтерингу: ' + e.message + '. Перевірте, що: 1) посилання правильне; ' +
+    '2) акаунт ' + ownerEmail() + ' має до неї доступ «Редактор»; 3) це таблиця Google, а не файл Excel — ' +
+    'якщо біля назви файлу є позначка .XLSX, відкрийте його і виберіть «Файл → Зберегти як таблицю Google», ' +
+    'а в «Налаштування» вставте посилання на створену таблицю.';
+}
+
 function ownerEmail() { try { return Session.getEffectiveUser().getEmail(); } catch (e) { return ''; } }
 
 /**
@@ -1789,8 +1797,7 @@ function cateringPlan(st) {
   let book;
   try { book = openTarget(st.cateringUrl); }
   catch (e) {
-    res.errors.push('Не вдалося відкрити таблицю кейтерингу: ' + e.message +
-      '. Перевірте посилання і що акаунт ' + ownerEmail() + ' має до неї доступ «Редактор».');
+    res.errors.push(cateringOpenError(e));
     return res;
   }
   if (book.getId() === ss().getId()) { res.errors.push('Посилання веде на цю саму таблицю, а не на таблицю кейтерингу.'); return res; }
