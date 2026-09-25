@@ -44,7 +44,7 @@
        background:var(--card); font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap}
   .tab.on{background:var(--accent); border-color:var(--accent); color:#fff}
   .note{font-size:13px; color:var(--warn-ink); background:var(--warn-bg); border-radius:10px;
-        padding:8px 12px; margin-bottom:12px}
+        padding:8px 12px; margin-bottom:12px; white-space:pre-line}
 
   /* прогрес: 5 днів × 3 клітинки */
   .days{display:flex; gap:6px; margin-bottom:6px}
@@ -551,7 +551,8 @@
         desc = x.items.length ? x.items.map(function(i){
           return '<span class="mi"><b class="' + (i.v === '№1' ? 'v1' : 'v2') + '">' + esc(i.v) + '</b>' + esc(i.meal) + ' ' + i.price + '</span>';
         }).join('') : '<span class="sub">нічого не замовлено</span>';
-        if (x.fix) desc += '<div class="fx">коригування суми тижня адміністратором: ' + uah(-x.fix, true) + '</div>';
+        if (x.fix) desc += '<div class="fx">уточнення суми тижня: ' + uah(-x.fix, true) + ' — при замовленні тиждень зафіксовано на ' +
+          uah(x.frozen) + ', а за нинішніми цінами виходить ' + uah(x.calc) + '</div>';
         (x.changes || []).forEach(function(c){
           desc += '<div class="ch' + (c.late ? ' late' : '') + '">змінено ' + esc(c.when) + ': ' + esc(c.text) + (c.late ? ' · після дедлайну' : '') + '</div>';
         });

@@ -1348,7 +1348,7 @@ function mondayFromLabel_(label, near) {
 function buildStatement_(name, from, to) {
   const days = {};
   const dayOf = ymd => (days[ymdKey(ymd)] = days[ymdKey(ymd)] ||
-    { ymd: ymd, charge: 0, items: [], changes: [], fix: 0 });
+    { ymd: ymd, charge: 0, items: [], changes: [], fix: 0, frozen: 0, calc: 0 });
 
   const oSh = sheet_(SHEETS.ORDERS);
   if (oSh && oSh.getLastRow() > 1) {
@@ -1366,7 +1366,9 @@ function buildStatement_(name, from, to) {
         calc += price; last = ymd;
       }
       const diff = (Number(r[17]) || 0) - calc;
-      if (diff) { const e = dayOf(last || ymdAdd_(mon, 4)); e.charge += diff; e.fix += diff; }
+      // сума тижня зафіксована при збереженні; якщо ціни потім змінили (або «Суму» виправили вручну),
+      // розклад по днях за нинішніми цінами дає іншу суму — різницю показуємо окремо, щоб підсумок збігся
+      if (diff) { const e = dayOf(last || ymdAdd_(mon, 4)); e.charge += diff; e.fix += diff; e.frozen = Number(r[17]) || 0; e.calc = calc; }
     });
   }
 
@@ -1420,7 +1422,7 @@ function buildStatement_(name, from, to) {
     e.changes.sort((a, b) => a.at - b.at);
     rows.push({
       k: +k, o: 1, kind: 'day', date: ymdStr(e.ymd), label: label(e.ymd), amount: -e.charge,
-      items: e.items, fix: e.fix, future: +k > today,
+      items: e.items, fix: e.fix, frozen: e.frozen, calc: e.calc, future: +k > today,
       changes: e.changes.map(c => ({ when: c.when, text: c.text, late: c.late })),
     });
   });

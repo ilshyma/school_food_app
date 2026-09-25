@@ -19,7 +19,8 @@
   .row{display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:10px}
   .row > div{flex:1; min-width:140px}
   label{display:block; font-size:12px; color:var(--muted); margin-bottom:3px}
-  input,select{font:15px inherit; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:#fff; min-width:0; width:100%}
+  input,select,textarea{font-size:15px; font-family:inherit; padding:9px 11px; border:1px solid var(--line); border-radius:10px; background:#fff; min-width:0; width:100%}
+  textarea{resize:vertical; min-height:64px; line-height:1.4}
   input[type=date]{min-width:150px} input[type=number]{min-width:110px}
   .btn{font:600 15px inherit; padding:10px 18px; border:0; border-radius:10px; background:var(--accent); color:#fff; cursor:pointer; flex:0 0 auto}
   .btn.sec{background:var(--accent-soft); color:var(--accent)}
@@ -36,7 +37,9 @@
   .chip{border:1px solid var(--line); background:var(--card); border-radius:999px; padding:6px 13px;
        font-size:13px; font-weight:600; cursor:pointer; color:var(--ink); white-space:nowrap}
   .chip.on{background:var(--accent); border-color:var(--accent); color:#fff}
-  .chip .cnt{font-weight:500; opacity:.65; margin-left:5px}
+  .chip-n{display:inline-block; min-width:20px; margin-left:7px; padding:0 7px; border-radius:999px; background:var(--bg);
+       color:var(--muted); font-size:11.5px; font-weight:700; line-height:18px; text-align:center}
+  .chip.on .chip-n{background:rgba(255,255,255,.25); color:#fff}
 
   /* мітка класу */
   .cls-tag{display:inline-block; background:var(--accent-soft); color:var(--accent); border-radius:6px;
@@ -86,8 +89,13 @@
   .kc-meta{font-size:12.5px; color:var(--muted); margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .kc-meta .sep{opacity:.45; margin:0 6px}
   .kidcard.arch{opacity:.55}
-  .kc-grid{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px 10px; margin-top:10px}
-  .kc-grid label{margin-bottom:2px}
+  /* ПІБ | Клас | Статус  ·  Телефон | Email (×2)  ·  Примітка */
+  .kc-g1{display:grid; grid-template-columns:minmax(0,2fr) 96px minmax(0,1fr); gap:8px 10px; margin-top:10px}
+  .kc-g1.two{grid-template-columns:minmax(0,2fr) 96px}
+  .kc-g2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.6fr); gap:8px 10px; margin-top:8px}
+  .kc-note{margin-top:8px}
+  .kc-note label span{color:var(--muted); opacity:.8}
+  .kc-g1 label,.kc-g2 label,.kc-note label{margin-bottom:2px}
   .kc-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:8px}
   .kc-actions .btn{padding:8px 16px; font-size:13.5px}
 
@@ -99,7 +107,9 @@
     .row > div{width:100%}
     .row .btn{width:100%}
     .vars{grid-template-columns:1fr}
-    .kc-grid{grid-template-columns:1fr 1fr}
+    .kc-g1,.kc-g1.two{grid-template-columns:96px minmax(0,1fr)}
+    .kc-g1 > div:first-child{grid-column:1 / -1}
+    .kc-g2{grid-template-columns:1fr}
     table.who{font-size:13px}
     table.who th,table.who td{padding:5px 5px}
   }
@@ -214,18 +224,18 @@
       <div class="ok" id="kids-ok"></div>
       <div class="add-bar"><button class="btn sec" id="add-toggle" onclick="toggleAdd()">+ Додати дитину</button></div>
       <div id="add-form" class="hidden" style="margin-top:14px; border-top:1px solid var(--line); padding-top:14px">
-        <div class="row">
-          <div style="flex:2"><label>ПІБ</label><input type="text" id="n-name"></div>
-          <div style="max-width:110px"><label>Клас</label><select id="n-cls"></select></div>
-          <div><label>Телефон 1</label><input type="text" id="n-p1"></div>
-          <div><label>Телефон 2</label><input type="text" id="n-p2"></div>
+        <div class="kc-g1 two">
+          <div><label>ПІБ</label><input type="text" id="n-name"></div>
+          <div><label>Клас</label><select id="n-cls"></select></div>
         </div>
-        <div class="row">
-          <div><label>Email 1</label><input type="text" id="n-e1"></div>
-          <div><label>Email 2</label><input type="text" id="n-e2"></div>
-          <div style="flex:2"><label>Примітка</label><input type="text" id="n-note"></div>
-          <button class="btn" id="add-btn" onclick="addChild()">Додати</button>
+        <div class="kc-g2">
+          <div><label>Телефон 1</label><input type="tel" id="n-p1"></div>
+          <div><label>Email 1</label><input type="email" id="n-e1"></div>
+          <div><label>Телефон 2</label><input type="tel" id="n-p2"></div>
+          <div><label>Email 2</label><input type="email" id="n-e2"></div>
         </div>
+        <div class="kc-note"><label>Примітка, алергії, інше <span>· бачать батьки цієї дитини</span></label><textarea rows="3" id="n-note"></textarea></div>
+        <div class="kc-actions"><button class="btn" id="add-btn" onclick="addChild()">Додати</button></div>
         <div class="err" id="add-err"></div>
       </div>
     </div>
@@ -263,7 +273,7 @@
     list.forEach(function(c){
       var b = document.createElement('div');
       b.className = 'chip' + (repFilter.indexOf(c) !== -1 ? ' on' : '');
-      b.textContent = c || 'без класу';
+      b.textContent = c ? c + ' клас' : 'без класу';
       b.onclick = function(){
         var i = repFilter.indexOf(c);
         if (i === -1) repFilter.push(c); else repFilter.splice(i, 1);
@@ -380,7 +390,8 @@
       var n = roster.filter(function(k){ return (k.cls || '') === c; }).length;
       var b = document.createElement('div');
       b.className = 'chip' + (kidFilter.indexOf(c) !== -1 ? ' on' : '');
-      b.innerHTML = esc(c || 'без класу') + '<span class="cnt">' + n + '</span>';
+      b.innerHTML = esc(c ? c + ' клас' : 'без класу') + '<span class="chip-n" title="дітей">' + n + '</span>';
+      b.title = (c ? c + ' клас' : 'Без класу') + ': ' + n + ' дітей';
       b.onclick = function(){
         var i = kidFilter.indexOf(c);
         if (i === -1) kidFilter.push(c); else kidFilter.splice(i, 1);
@@ -415,7 +426,7 @@
   function kidViewCard(k){
     var card = document.createElement('div');
     card.className = 'kidcard' + (k.status === 'архів' ? ' arch' : '');
-    var meta = [k.phone1, k.phone2, k.email1, k.email2, k.note].filter(Boolean).join(' · ');
+    var meta = [k.phone1, k.phone2, k.email1, k.email2, String(k.note || '').replace(/\s*\n\s*/g, ' ')].filter(Boolean).join(' · ');
     card.innerHTML =
       '<div class="kc-top">' + clsTag(k.cls) + '<b>' + esc(k.name) + '</b>' +
         (k.status === 'архів' ? '<span class="muted">архів</span>' : '') +
@@ -431,16 +442,19 @@
     card.className = 'kidcard';
     card.innerHTML =
       '<div class="kc-top"><b>' + esc(k.name) + '</b><span class="bal ' + (k.balance < 0 ? 'neg' : 'pos') + '">' + esc(money(k.balance)) + '</span></div>' +
-      '<div class="kc-grid">' +
+      '<div class="kc-g1">' +
         '<div><label>ПІБ</label><input value="' + esc(k.name) + '" data-f="name"></div>' +
         '<div><label>Клас</label>' + clsSelect(k.cls, 'cls') + '</div>' +
         '<div><label>Статус</label><select data-f="status"><option' + (k.status !== 'архів' ? ' selected' : '') + '>активний</option><option' + (k.status === 'архів' ? ' selected' : '') + '>архів</option></select></div>' +
-        '<div><label>Примітка</label><input value="' + esc(k.note) + '" data-f="note"></div>' +
-        '<div><label>Телефон 1</label><input value="' + esc(k.phone1) + '" data-f="phone1"></div>' +
-        '<div><label>Телефон 2</label><input value="' + esc(k.phone2) + '" data-f="phone2"></div>' +
-        '<div><label>Email 1</label><input value="' + esc(k.email1) + '" data-f="email1"></div>' +
-        '<div><label>Email 2</label><input value="' + esc(k.email2) + '" data-f="email2"></div>' +
       '</div>' +
+      '<div class="kc-g2">' +
+        '<div><label>Телефон 1</label><input type="tel" value="' + esc(k.phone1) + '" data-f="phone1"></div>' +
+        '<div><label>Email 1</label><input type="email" value="' + esc(k.email1) + '" data-f="email1"></div>' +
+        '<div><label>Телефон 2</label><input type="tel" value="' + esc(k.phone2) + '" data-f="phone2"></div>' +
+        '<div><label>Email 2</label><input type="email" value="' + esc(k.email2) + '" data-f="email2"></div>' +
+      '</div>' +
+      '<div class="kc-note"><label>Примітка, алергії, інше <span>· бачать батьки цієї дитини</span></label>' +
+        '<textarea rows="3" data-f="note">' + esc(k.note) + '</textarea></div>' +
       '<div class="kc-actions"><button class="btn ghost">Скасувати</button><button class="btn">Зберегти</button></div>';
     var btns = card.querySelectorAll('.kc-actions .btn');
     btns[0].onclick = function(){ editingRow = 0; renderRoster(); };
@@ -562,7 +576,8 @@
         desc = x.items.length ? x.items.map(function(i){
           return '<span class="mi"><b class="' + (i.v === '№1' ? 'v1' : 'v2') + '">' + esc(i.v) + '</b>' + esc(i.meal) + ' ' + i.price + '</span>';
         }).join('') : '<span class="muted">нічого не замовлено</span>';
-        if (x.fix) desc += '<div class="fx">коригування суми тижня (ручна правка «Суми» в «Замовленнях»): ' + uah(-x.fix, true) + '</div>';
+        if (x.fix) desc += '<div class="fx">уточнення суми тижня: ' + uah(-x.fix, true) + ' — при замовленні зафіксовано ' +
+          uah(x.frozen) + ', за нинішніми цінами ' + uah(x.calc) + ' (ціни змінено заднім числом або «Суму» виправлено вручну)</div>';
         (x.changes || []).forEach(function(c){
           desc += '<div class="ch' + (c.late ? ' late' : '') + '">змінено ' + esc(c.when) + ': ' + esc(c.text) + (c.late ? ' · після дедлайну' : '') + '</div>';
         });
