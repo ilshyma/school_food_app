@@ -20,6 +20,7 @@ const SHEETS = {
   BALANCE: 'Баланс',      // генерується: замовлено/оплачено по кожній дитині
   LOG: 'Журнал змін',     // що саме змінили батьки — для передачі кейтерингу
   IMPORT: 'Імпорт',       // переїзд зі старої системи: список + стартові баланси
+  CAT_LOG: 'Кейтеринг: журнал', // кожна передача кількостей порцій у таблицю кейтерингу
 };
 
 // увесь час у системі — львівський, незалежно від налаштувань акаунта/скрипта
@@ -63,7 +64,7 @@ function onOpen() {
     .addSeparator()
     .addItem('Оновити «Зведення» і «Баланс»', 'refreshAll')
     .addItem('Позначити зміни як передані кейтерингу', 'markChangesSent')
-    .addItem('Передати кейтерингу: скопіювати в їхню таблицю', 'exportToCatering')
+    .addItem('Кейтеринг: перевірити й передати кількість порцій', 'cateringMenu')
     .addSeparator()
     .addItem('Показати посилання на адмін-панель', 'showAdminLink')
     .addItem('Увімкнути нагадування та email-сповіщення', 'installTriggers')
@@ -126,8 +127,8 @@ function setupSheets() {
     'URL веб-додатку',
     'Адмін-токен',
     'Кейтеринг: таблиця (посилання)',
-    'Кейтеринг: лист для зведення',
-    'Кейтеринг: лист для замовлень по дітях',
+    'Кейтеринг: лист',
+    'Кейтеринг: автопередача',
   ];
   const DEFAULTS = {
     'Дедлайн: днів до понеділка': 1,
@@ -136,11 +137,12 @@ function setupSheets() {
     'Тиждень закрито': 'ні',
     'Нагадування: за годин до дедлайну': 2,
     'Адмін-токен': newToken(16),
-    'Кейтеринг: лист для зведення': 'Зведення {тиждень}',
-    'Кейтеринг: лист для замовлень по дітях': 'Діти {тиждень}',
+    'Кейтеринг: лист': 'Підрахунки {тиждень}',
+    'Кейтеринг: автопередача': 'ні',
   };
   const RENAME = { 'Дедлайн (час)': 'Дедлайн: час' };
-  const OBSOLETE = ['Дедлайн (дата і час)', 'Дедлайн (дата)'];
+  const OBSOLETE = ['Дедлайн (дата і час)', 'Дедлайн (дата)',
+    'Кейтеринг: лист для зведення', 'Кейтеринг: лист для замовлень по дітях'];
   const cur = st.getLastRow() ? st.getRange(1, 1, st.getLastRow(), 2).getValues() : [];
   const valByKey = {}, extras = [];
   cur.forEach(r => {
@@ -178,8 +180,9 @@ function setupSheets() {
     'URL веб-додатку': ['@', null],
     'Адмін-токен': ['@', null],
     'Кейтеринг: таблиця (посилання)': ['@', null],
-    'Кейтеринг: лист для зведення': ['@', null],
-    'Кейтеринг: лист для замовлень по дітях': ['@', null],
+    'Кейтеринг: лист': ['@', null],
+    'Кейтеринг: автопередача': ['@', listRule(['ні', 'так'], true,
+      'так — кожні 15 хвилин, якщо кількості змінилися, система сама оновлює лист кейтерингу (після перевірки)')],
   };
   st.getRange(1, 1, st.getLastRow(), 1).getValues().forEach((r, i) => {
     const f = CELL_FORMATS[String(r[0]).trim()];
@@ -283,6 +286,9 @@ function setupSheets() {
   ensure(SHEETS.SUMMARY, []);
   ensure(SHEETS.BALANCE, []);
   const logSh = ensure(SHEETS.LOG, ['Час', 'Тиждень', 'ПІБ', 'Контакт', 'Зміни', 'Після дедлайну', 'Передано кейтерингу']);
+  const catLog = ensure(SHEETS.CAT_LOG, ['Час', 'Тиждень', 'Запуск', 'Результат', 'Змінено клітинок', 'Деталі']);
+  catLog.getRange('A2:A5000').setNumberFormat('dd.mm.yyyy hh:mm');
+  catLog.setColumnWidth(6, 520);
   logSh.getRange('A2:A5000').setNumberFormat('dd.mm.yyyy hh:mm');
   logSh.getRange('G2:G5000').setDataValidation(listRule(['так'], false, 'так — зміну передано кейтерингу'));
   logSh.setColumnWidth(5, 420);
@@ -401,8 +407,8 @@ function getSettings() {
     appUrl: String(map['URL веб-додатку'] || '').trim(),
     adminToken: String(map['Адмін-токен'] || '').trim(),
     cateringUrl: String(map['Кейтеринг: таблиця (посилання)'] || '').trim(),
-    cateringSummaryTab: exportTabName(map['Кейтеринг: лист для зведення'], 'Зведення {тиждень}'),
-    cateringKidsTab: exportTabName(map['Кейтеринг: лист для замовлень по дітях'], 'Діти {тиждень}'),
+    cateringTab: String(map['Кейтеринг: лист'] || '').trim() || 'Підрахунки {тиждень}',
+    cateringAuto: String(map['Кейтеринг: автопередача'] || '').trim().toLowerCase() === 'так',
     remindHours: (typeof map['Нагадування: за годин до дедлайну'] === 'number') ? map['Нагадування: за годин до дедлайну'] : 2,
     pastDeadline: !!(deadline && new Date() > deadline),
     deadlineText: deadline ? fmtDl(deadline) : '',
@@ -1352,9 +1358,11 @@ function installTriggers() {
   const have = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
   if (have.indexOf('reminderTick') === -1) ScriptApp.newTrigger('reminderTick').timeBased().everyHours(1).create();
   if (have.indexOf('onPaymentEdit') === -1) ScriptApp.newTrigger('onPaymentEdit').forSpreadsheet(ss()).onEdit().create();
+  if (have.indexOf('cateringTick') === -1) ScriptApp.newTrigger('cateringTick').timeBased().everyMinutes(15).create();
   SpreadsheetApp.getUi().alert(
     'Увімкнено:\n• щогодинна перевірка і нагадування на email за ' + getSettings().remindHours +
-    ' год до дедлайну тим, хто не замовив;\n• лист сім’ї після внесення оплати в «Оплати».\n\n' +
+    ' год до дедлайну тим, хто не замовив;\n• лист сім’ї після внесення оплати в «Оплати»;\n' +
+    '• автопередача кількостей кейтерингу кожні 15 хв — працює лише коли «Кейтеринг: автопередача» = так.\n\n' +
     'Email беруться з колонок «Email 1/2» листа «Список».');
 }
 
@@ -1462,17 +1470,12 @@ function refreshBalance() {
   sh.setFrozenRows(1);
 }
 
-// ---------------------------------------------------------------- передача кейтерингу (ручний запуск)
-
-// мітка в нотатці A1 листів, які створила ця система в чужій таблиці: лише їх дозволено перезаписувати
-const EXPORT_MARK = 'Створено системою «Харчування Онлайн»';
-
-/** Назва листа з налаштувань: порожньо → типова, «ні» / «—» → не передавати. */
-function exportTabName(v, def) {
-  const s = String(v === undefined || v === null ? '' : v).trim();
-  if (/^(ні|—|-|no)$/i.test(s)) return '';
-  return s || def;
-}
+// ---------------------------------------------------------------- передача кейтерингу: кількість порцій
+//
+// Кейтеринг веде таблицю з листом «Підрахунки …»: 5 блоків «День | Підрахунки», у кожному рядки
+// «Сніданок 1», «Сніданок 2», «Обід 1» … і праворуч — кількість. Ми кладемо туди наші кількості
+// (ті самі, що в нашому «Зведенні»). Діти й вибір лишаються тільки в нас.
+// Перед записом лист розбирається парсером: тиждень, 30 позицій, дні, числові клітинки.
 
 function fillWeek(tpl, st) { return String(tpl || '').replace(/\{тиждень\}/g, st.weekLabel).trim(); }
 
@@ -1481,106 +1484,196 @@ function openTarget(urlOrId) {
   return v.indexOf('/d/') !== -1 ? SpreadsheetApp.openByUrl(v) : SpreadsheetApp.openById(v);
 }
 
-function isOurTab(sh) {
-  try { return String(sh.getRange(1, 1).getNote() || '').indexOf(EXPORT_MARK) === 0; } catch (e) { return false; }
-}
+function gidFromUrl(u) { const m = /[#&?]gid=(\d+)/.exec(String(u || '')); return m ? +m[1] : null; }
 
-/** Таблиця для кейтерингу: № | ПІБ | Клас | 15 виборів | Примітка (алергії тощо). */
-function kidsGrid(st) {
-  const orders = ordersForWeek(st.weekLabel);
-  const byName = {};
-  roster().forEach(k => { byName[k.name] = k; });
-  // активні діти + ті, в кого є замовлення на тиждень (навіть якщо вже в архіві) — щоб збігалося зі «Зведенням»
-  const names = Object.keys(byName).filter(n => byName[n].active);
-  Object.keys(orders).forEach(n => { if (names.indexOf(n) === -1) names.push(n); });
-  const clsOf = n => (byName[n] && byName[n].cls) || '';
-  names.sort((a, b) => (clsOf(a) || 'яяя').localeCompare(clsOf(b) || 'яяя', 'uk') || a.localeCompare(b, 'uk'));
-  const head = ['№', 'ПІБ', 'Клас'].concat(orderHeaders().slice(2, 17)).concat(['Примітка']);
-  return [head].concat(names.map((n, i) => [i + 1, n, clsOf(n)]
-    .concat(orders[n] || Array(15).fill(NONE))
-    .concat([(byName[n] && byName[n].note) || ''])));
-}
-
-function formatKids(sh, g) {
-  const W = g[0].length;
-  sh.getRange(1, 1, 1, W).setFontWeight('bold').setBackground('#93c47d');
-  if (g.length > 1) {
-    const bg = g.slice(1).map(r => r.map((v, j) => (j >= 3 && j < 18)
-      ? (v === '№1' ? '#fde3c8' : v === '№2' ? '#d9ead3' : null) : null));
-    sh.getRange(2, 1, g.length - 1, W).setBackgrounds(bg);
-  }
-  sh.setFrozenRows(1);
-  sh.setColumnWidth(1, 36);
-  sh.setColumnWidth(2, 220);
-  sh.setColumnWidth(3, 50);
-  sh.setColumnWidths(4, 15, 92);
-  sh.setColumnWidth(W, 320);
-}
+function ownerEmail() { try { return Session.getEffectiveUser().getEmail(); } catch (e) { return ''; } }
 
 /**
- * Пункт меню: копіює «Зведення» (числами) і замовлення по дітях активного тижня в таблицю кейтерингу.
- * Пише лише в листи, які створила сама (мітка в нотатці A1) або яких ще немає, — чужі дані не чіпає.
+ * Знаходить лист кейтерингу на активний тиждень і розбирає, у які клітинки писати.
+ * Лист: спершу за назвою з «Кейтеринг: лист» ({тиждень} → 28.09-02.10), інакше — за gid з посилання.
+ * Повертає { errors[], warnings[], book, sheet, slots[30]: {d, m, v, r, c, cur, formula} }.
  */
-function exportToCatering() {
+function cateringPlan(st) {
+  const res = { errors: [], warnings: [], slots: [] };
+  if (!st.monday) { res.errors.push('Не вказано «Понеділок тижня (дата)» в «Налаштуваннях».'); return res; }
+  if (!st.cateringUrl) { res.errors.push('Не вказано «Кейтеринг: таблиця (посилання)» в «Налаштуваннях» (якщо рядка немає — запустіть пункт меню 1).'); return res; }
+  let book;
+  try { book = openTarget(st.cateringUrl); }
+  catch (e) {
+    res.errors.push('Не вдалося відкрити таблицю кейтерингу: ' + e.message +
+      '. Перевірте посилання і що акаунт ' + ownerEmail() + ' має до неї доступ «Редактор».');
+    return res;
+  }
+  if (book.getId() === ss().getId()) { res.errors.push('Посилання веде на цю саму таблицю, а не на таблицю кейтерингу.'); return res; }
+  res.book = book;
+
+  const wantName = fillWeek(st.cateringTab, st);
+  let sh = wantName ? book.getSheetByName(wantName) : null;
+  if (!sh) {
+    const gid = gidFromUrl(st.cateringUrl);
+    if (gid !== null) sh = book.getSheets().filter(x => x.getSheetId() === gid)[0] || null;
+  }
+  if (!sh) {
+    res.errors.push('У таблиці «' + book.getName() + '» немає листа «' + wantName + '». Є: ' +
+      book.getSheets().map(x => '«' + x.getName() + '»').join(', ') +
+      '. Можливо, кейтеринг ще не створив лист на тиждень ' + st.weekLabel + '.');
+    return res;
+  }
+  res.sheet = sh;
+
+  // 1) тиждень: у назві листа або файлу мають бути наші дати
+  const names = [sh.getName(), book.getName()];
+  const alt = dm(st.mondayYmd) + '.' + st.mondayYmd.y; // 28.09.2026 — як у назві файлу
+  const hasWeek = names.some(t => t.indexOf(st.weekLabel) !== -1 || t.indexOf(alt) !== -1);
+  const hasDates = names.some(t => /\d{2}\.\d{2}/.test(t));
+  if (!hasWeek && hasDates) {
+    res.errors.push('Лист «' + sh.getName() + '» у файлі «' + book.getName() + '» — не на наш тиждень ' + st.weekLabel +
+      '. Щоб не записати не в той тиждень, передачу зупинено.');
+    return res;
+  }
+  if (!hasWeek) res.warnings.push('У назві листа й файлу немає дат — не можу перевірити, що це тиждень ' + st.weekLabel + '.');
+
+  // 2) розмітка: заголовки днів і рядки «Прийом N»; кількість — у клітинці праворуч
+  const rng = sh.getDataRange();
+  const vals = rng.getValues(), forms = rng.getFormulas();
+  const days = [];
+  vals.forEach((row, r) => row.forEach((v, c) => {
+    const t = normAp(v).toLowerCase();
+    const d = DAYS.findIndex(x => normAp(x).toLowerCase() === t);
+    if (d !== -1) days.push({ r: r, c: c, d: d });
+  }));
+  const found = days.map(h => h.d).filter((d, i, a) => a.indexOf(d) === i);
+  if (found.length < 5) {
+    res.errors.push('Знайдено не всі дні: ' + (found.map(d => DAYS[d]).join(', ') || 'жодного') + '. Очікую Понеділок…П’ятниця заголовками блоків.');
+  }
+  const cell = (r, c) => colLetter(c + 1) + (r + 1);
+  const seen = {};
+  vals.forEach((row, r) => row.forEach((v, c) => {
+    const m = /^(Сніданок|Обід|Підвечірок)\s*№?\s*([12])$/i.exec(normAp(v));
+    if (!m) return;
+    const meal = MEALS.findIndex(x => x.toLowerCase() === m[1].toLowerCase());
+    const hdr = days.filter(h => h.c === c && h.r < r).sort((a, b) => b.r - a.r)[0];
+    if (!hdr) { res.errors.push('«' + normAp(v) + '» у ' + cell(r, c) + ' — над ним немає назви дня.'); return; }
+    const key = hdr.d + '|' + meal + '|' + m[2];
+    if (seen[key]) { res.errors.push(DAYS[hdr.d] + ' · «' + normAp(v) + '» двічі: ' + seen[key] + ' і ' + cell(r, c) + '.'); return; }
+    seen[key] = cell(r, c);
+    const cur = (row[c + 1] === undefined) ? '' : row[c + 1];
+    const formula = !!(forms[r] && forms[r][c + 1]);
+    if (!formula && cur !== '' && typeof cur !== 'number' && isNaN(Number(cur))) {
+      res.errors.push('Праворуч від «' + normAp(v) + '» (' + cell(r, c + 1) + ') — текст «' + cur + '», а не кількість.');
+    }
+    res.slots.push({ d: hdr.d, m: meal, v: '№' + m[2], r: r + 1, c: c + 2, cur: cur, formula: formula });
+  }));
+  const missing = [];
+  DAYS.forEach((day, d) => MEALS.forEach((meal, mi) => ['1', '2'].forEach(n => {
+    if (!seen[d + '|' + mi + '|' + n]) missing.push(DAY_SHORT[d] + ' ' + meal + ' ' + n);
+  })));
+  if (missing.length) res.errors.push('Бракує позицій (' + missing.length + ' з 30): ' + missing.join(', ') + '.');
+  return res;
+}
+
+/** Порівнює план з нашими кількостями: що зміниться. */
+function cateringDiff(plan, st) {
+  const counts = countsForWeek(st.weekLabel);
+  plan.slots.forEach(s => { s.want = counts[s.d * 3 + s.m][s.v] || 0; });
+  return plan.slots.filter(s => s.formula || s.cur === '' || Number(s.cur) !== s.want);
+}
+
+/** Записує кількості й перечитує, щоб переконатися, що в них тепер саме наші числа. */
+function cateringWrite(plan, diff) {
+  diff.forEach(s => plan.sheet.getRange(s.r, s.c).setValue(s.want));
+  SpreadsheetApp.flush();
+  const bad = plan.slots.filter(s => Number(plan.sheet.getRange(s.r, s.c).getValue()) !== s.want);
+  return bad.map(s => DAY_SHORT[s.d] + ' ' + MEALS[s.m] + ' ' + s.v + ': у них ' + plan.sheet.getRange(s.r, s.c).getValue() + ', у нас ' + s.want);
+}
+
+function logCatering(st, mode, result, n, details) {
+  const sh = sheet(SHEETS.CAT_LOG, true);
+  if (sh.getLastRow() === 0) sh.getRange(1, 1, 1, 6).setValues([['Час', 'Тиждень', 'Запуск', 'Результат', 'Змінено клітинок', 'Деталі']]);
+  sh.appendRow([new Date(), st.weekLabel, mode, result, n, details]);
+}
+
+const slotName = s => DAY_SHORT[s.d] + ' ' + MEALS[s.m] + ' ' + s.v;
+
+/** Пункт меню: перевірка → звіт → підтвердження → запис → звірка. */
+function cateringMenu() {
   const ui = SpreadsheetApp.getUi();
   const st = getSettings();
-  if (!st.monday) { ui.alert('Спочатку вкажіть «Понеділок тижня (дата)» в «Налаштуваннях».'); return; }
-  if (!st.cateringUrl) {
-    ui.alert('Не вказано таблицю кейтерингу.\n\n«Налаштування» → «Кейтеринг: таблиця (посилання)» — вставте посилання на їхню Google-таблицю.\n' +
-      'Якщо цього рядка немає — спершу запустіть пункт меню 1.');
+  const plan = cateringPlan(st);
+  if (plan.errors.length) {
+    logCatering(st, 'вручну', '❌ перевірку не пройдено', 0, plan.errors.join(' | '));
+    ui.alert('Передачу зупинено', 'Лист кейтерингу не пройшов перевірку, нічого не записано:\n\n• ' + plan.errors.join('\n• '), ui.ButtonSet.OK);
     return;
   }
-  const plan = [
-    { kind: 'summary', name: fillWeek(st.cateringSummaryTab, st), what: 'кількість порцій' },
-    { kind: 'kids', name: fillWeek(st.cateringKidsTab, st), what: 'замовлення по дітях' },
-  ].filter(t => t.name);
-  if (!plan.length) { ui.alert('Обидва листи для передачі вимкнені («ні») у «Налаштуваннях».'); return; }
-  if (plan.length === 2 && plan[0].name === plan[1].name) { ui.alert('Назви листів для зведення і для дітей однакові — зробіть їх різними.'); return; }
-
-  let target;
-  try { target = openTarget(st.cateringUrl); }
-  catch (e) {
-    ui.alert('Не вдалося відкрити таблицю кейтерингу:\n' + e.message + '\n\nПеревірте посилання і що акаунт ' +
-      Session.getEffectiveUser().getEmail() + ' має до неї доступ «Редактор».');
+  const diff = cateringDiff(plan, st);
+  const head = 'Файл: ' + plan.book.getName() + '\nЛист: «' + plan.sheet.getName() + '»\nТиждень: ' + st.weekLabel +
+    '\n\nПеревірка: ✅ знайдено всі 30 позицій (5 днів × 3 прийоми × 2 варіанти)' +
+    (plan.warnings.length ? '\n⚠ ' + plan.warnings.join('\n⚠ ') : '');
+  if (!diff.length) {
+    logCatering(st, 'вручну', '✅ без змін', 0, 'кількості в листі кейтерингу вже актуальні');
+    ui.alert('Кейтеринг', head + '\n\nУ їхньому листі вже наші кількості — змінювати нічого.', ui.ButtonSet.OK);
     return;
   }
-  if (target.getId() === ss().getId()) { ui.alert('Посилання веде на цю саму таблицю. Вкажіть таблицю кейтерингу.'); return; }
-
-  plan.forEach(t => { const sh = target.getSheetByName(t.name); t.exists = !!sh; t.ours = !sh || isOurTab(sh); });
-  const foreign = plan.filter(t => !t.ours);
-  if (foreign.length) {
-    ui.alert('Передачу зупинено',
-      'У таблиці «' + target.getName() + '» уже є ' + foreign.map(t => '«' + t.name + '»').join(', ') +
-      ' — цей лист створено не нашою системою, тому перезаписувати його не буду, щоб не зіпсувати чужі дані.\n\n' +
-      'Змініть назву листа в «Налаштуваннях» (наприклад, додайте «{тиждень}») або перейменуйте той лист у таблиці кейтерингу.',
-      ui.ButtonSet.OK);
-    return;
-  }
-
-  const ok = ui.alert('Передати кейтерингу',
-    'Таблиця: ' + target.getName() + '\nТиждень: ' + st.weekLabel + '\n\n' +
-    plan.map(t => '• «' + t.name + '» — ' + t.what + ' — ' + (t.exists ? 'буде оновлено' : 'буде створено')).join('\n') +
-    '\n\nІнші листи їхньої таблиці не змінюються. Продовжити?', ui.ButtonSet.OK_CANCEL);
+  const nForm = diff.filter(s => s.formula).length;
+  const lines = diff.filter(s => !s.formula).map(s => slotName(s) + ': ' + (s.cur === '' ? 'порожньо' : s.cur) + ' → ' + s.want);
+  const ok = ui.alert('Передати кейтерингу', head + '\n\nЗміниться клітинок: ' + diff.length +
+    (nForm ? '\n• ' + nForm + ' клітинок зараз містять їхні формули — їх буде замінено нашими числами' : '') +
+    (lines.length ? '\n• ' + lines.slice(0, 15).join('\n• ') + (lines.length > 15 ? '\n… ще ' + (lines.length - 15) : '') : '') +
+    '\n\nІнші клітинки й листи їхньої таблиці не змінюються. Записати?', ui.ButtonSet.OK_CANCEL);
   if (ok !== ui.Button.OK) return;
 
-  const stamp = Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH:mm');
-  plan.forEach(t => {
-    const sh = target.getSheetByName(t.name) || target.insertSheet(t.name);
-    sh.clear();
-    const g = t.kind === 'summary' ? summaryGrid(st, countsForWeek(st.weekLabel)) : kidsGrid(st);
-    sh.getRange(1, 1, g.length, g[0].length).setValues(g);
-    if (t.kind === 'summary') formatSummary(sh, g[0].length); else formatKids(sh, g);
-    sh.getRange(1, 1).setNote(EXPORT_MARK + '\nТиждень ' + st.weekLabel + '\nОновлено ' + stamp +
-      '\nЛист перезаписується при кожній передачі — не вносьте сюди власних правок.');
-  });
-
+  const bad = cateringWrite(plan, diff);
+  if (bad.length) {
+    logCatering(st, 'вручну', '⚠ записано з розбіжностями', diff.length, bad.join(' | '));
+    ui.alert('Увага', 'Після запису в їхньому листі не збігаються:\n• ' + bad.join('\n• '), ui.ButtonSet.OK);
+    return;
+  }
+  PropertiesService.getScriptProperties().setProperty('cat_last', cateringSignature(st));
+  logCatering(st, 'вручну', '✅ передано', diff.length, lines.slice(0, 40).join('; ') + (nForm ? (lines.length ? '; ' : '') + nForm + ' формул замінено числами' : ''));
   const pending = markSent(st.weekLabel, false);
-  const done = 'Передано в «' + target.getName() + '»: ' + plan.map(t => '«' + t.name + '»').join(', ') + '.\n' + target.getUrl();
+  const done = 'Передано й перевірено: у листі «' + plan.sheet.getName() + '» тепер наші кількості.\n' + plan.book.getUrl();
   if (pending) {
-    const r = ui.alert('Готово', done + '\n\nУ «Журналі змін» ' + pending + ' непозначених змін за цей тиждень — ' +
-      'вони вже враховані в переданих даних. Позначити їх як передані?', ui.ButtonSet.YES_NO);
+    const r = ui.alert('Готово', done + '\n\nУ «Журналі змін» ' + pending + ' непозначених змін за цей тиждень — вони вже враховані. Позначити їх як передані?', ui.ButtonSet.YES_NO);
     if (r === ui.Button.YES) markSent(st.weekLabel, true);
   } else ui.alert('Готово', done, ui.ButtonSet.OK);
+}
+
+function cateringSignature(st) { return st.weekLabel + '|' + JSON.stringify(countsForWeek(st.weekLabel)); }
+
+/**
+ * Тригер кожні 15 хв (ставить «Увімкнути нагадування…»). Працює лише з «Кейтеринг: автопередача» = так.
+ * Пише тільки якщо кількості змінилися з останньої успішної передачі і перевірка пройшла без помилок.
+ * Автоматично не пише, якщо тиждень неможливо перевірити за назвою. Про проблему — один лист власнику.
+ */
+function cateringTick() {
+  const st = getSettings();
+  if (!st.cateringAuto || !st.monday || !st.cateringUrl) return;
+  const props = PropertiesService.getScriptProperties();
+  const sig = cateringSignature(st);
+  if (props.getProperty('cat_last') === sig) return;
+  const plan = cateringPlan(st);
+  const errors = plan.errors.concat(plan.warnings.length ? ['автопередача не пише без перевірки тижня: ' + plan.warnings.join('; ')] : []);
+  if (errors.length) { cateringAlert(st, errors.join('\n• ')); return; }
+  const diff = cateringDiff(plan, st);
+  const bad = diff.length ? cateringWrite(plan, diff) : [];
+  if (bad.length) { cateringAlert(st, 'після запису не збігаються: ' + bad.join('; ')); return; }
+  props.setProperty('cat_last', sig);
+  props.deleteProperty('cat_alert');
+  if (diff.length) logCatering(st, 'авто', '✅ передано', diff.length, diff.map(s => slotName(s) + ': ' + (s.formula ? 'формула' : (s.cur === '' ? 'порожньо' : s.cur)) + ' → ' + s.want).join('; '));
+}
+
+/** Автопередача не вдалася: запис у журнал і лист власнику — один раз на кожну нову проблему. */
+function cateringAlert(st, msg) {
+  const props = PropertiesService.getScriptProperties();
+  const key = st.weekLabel + '|' + msg;
+  if (props.getProperty('cat_alert') === key) return;
+  props.setProperty('cat_alert', key);
+  logCatering(st, 'авто', '❌ не передано', 0, msg);
+  const to = ownerEmail();
+  if (to) sendMail([to], 'Кейтеринг: кількості не передано (' + st.weekLabel + ')',
+    'Автопередача кількостей порцій у таблицю кейтерингу зупинена, нічого не записано:\n\n• ' + msg +
+    '\n\nВиправте причину або запустіть меню «Кейтеринг: перевірити й передати кількість порцій» вручну.' +
+    '\nЖурнал — лист «' + SHEETS.CAT_LOG + '».');
 }
 
 // ---------------------------------------------------------------- веб-додаток
