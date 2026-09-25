@@ -109,10 +109,19 @@
   #toast.show{opacity:.95}
   .spin{text-align:center; color:var(--muted); padding:48px 0}
   /* виписка */
-  .stmt-link{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; margin:0 0 14px;
-       border:1px solid var(--line); background:var(--card); border-radius:12px; padding:10px 14px;
-       font-size:14px; font-weight:600; color:var(--accent); cursor:pointer; text-align:left}
-  .stmt-link span{color:var(--muted); font-weight:400; font-size:12.5px}
+  /* картка «Для кого»: вибір дитини + її баланс, виписка й примітка */
+  .who{padding:12px 14px}
+  .who-top{display:flex; align-items:center; gap:10px; min-width:0}
+  .who-lbl{font-size:12px; color:var(--muted); flex:0 0 auto}
+  .who .tabs{margin:0; flex:1; min-width:0}
+  .who-name{font-size:16px}
+  .who-row{display:flex; align-items:center; justify-content:space-between; gap:10px;
+       margin-top:10px; padding-top:10px; border-top:1px solid var(--line)}
+  .who .bal{margin:0; font-size:16px; line-height:1.2}
+  .who .bal small{display:block; font-size:11.5px; font-weight:400; color:var(--muted); margin-bottom:2px}
+  .stmt-mini{flex:0 0 auto; border:0; background:var(--accent-soft); color:var(--accent); font:inherit;
+       font-weight:600; font-size:13px; border-radius:999px; padding:6px 12px; cursor:pointer}
+  .who .note{margin:10px 0 0}
   .stmt-head{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px}
   .stmt-head b{font-size:16px}
   .slim{width:auto !important; padding:8px 14px !important; font-size:14px !important; flex:0 0 auto}
@@ -160,7 +169,6 @@
 <div class="wrap">
   <h1>🍲 Замовлення харчування</h1>
   <div class="sub" id="week-sub">&nbsp;</div>
-  <div class="bal hidden" id="bal"></div>
 
   <div id="screen-loading" class="spin">Завантаження…</div>
 
@@ -181,10 +189,12 @@
   </div>
 
   <div id="screen-order" class="hidden">
+    <div class="card who">
+      <div class="who-top"><span class="who-lbl" id="who-lbl">Для кого</span><div class="tabs" id="tabs"></div><b class="who-name hidden" id="who-name"></b></div>
+      <div class="who-row"><span class="bal" id="bal"></span><button class="stmt-mini" onclick="openStatement()">📄 Виписка</button></div>
+      <div id="child-note" class="note hidden"></div>
+    </div>
     <div id="deadline-banner" class="banner info hidden"></div>
-    <div class="tabs" id="tabs"></div>
-    <button class="stmt-link" onclick="openStatement()">📄 Виписка: витрати й оплати <span>за будь-який період →</span></button>
-    <div id="child-note" class="note hidden"></div>
     <div class="days" id="days"></div>
     <div class="legend"><span><i class="v1"></i>№1</span><span><i class="v2"></i>№2</span><span><i></i>не замовляю</span><span style="margin-left:auto">клітинки: сніданок · обід · підвечірок</span></div>
     <div id="grid"></div>
@@ -232,7 +242,6 @@
       $(s).classList.toggle('hidden', s !== id);
     });
     $('foot').classList.toggle('hidden', id !== 'screen-order');
-    $('bal').classList.toggle('hidden', id !== 'screen-order');
   }
   function toast(msg){
     var t = $('toast'); t.textContent = msg; t.classList.add('show');
@@ -325,7 +334,11 @@
   function renderTabs(){
     var el = $('tabs');
     el.innerHTML = '';
-    el.classList.toggle('hidden', state.children.length < 2);
+    var multi = state.children.length > 1;
+    el.classList.toggle('hidden', !multi);
+    $('who-name').classList.toggle('hidden', multi);
+    $('who-name').textContent = state.children[cur].name;
+    $('who-lbl').textContent = multi ? 'Для кого' : 'Дитина';
     state.children.forEach(function(k, i){
       var t = document.createElement('div');
       t.className = 'tab' + (i === cur ? ' on' : '');
@@ -386,7 +399,7 @@
     note.classList.toggle('hidden', !kid.note);
     note.textContent = kid.note ? '📌 ' + kid.note : '';
     var bal = $('bal');
-    bal.textContent = 'Баланс на початок тижня: ' + money(kid.balanceStart);
+    bal.innerHTML = '<small>Баланс на початок тижня</small>' + esc(uah(kid.balanceStart, true));
     bal.className = 'bal ' + (kid.balanceStart < 0 ? 'neg' : 'pos');
 
     renderProgress();
