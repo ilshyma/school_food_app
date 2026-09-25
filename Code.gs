@@ -48,7 +48,7 @@ const DEFAULT_RULES = {
 const SECTION_MARK = '■';
 const SETTINGS_LAYOUT = [
   { title: 'ТИЖДЕНЬ І ДЕДЛАЙН', hint: 'який тиждень бачать батьки і до коли можна вільно замовляти', items: [
-    ['Понеділок тижня (дата)', 'Активний тиждень — його бачать батьки. Найзручніше змінювати меню «▶ Новий тиждень»: воно ще й імпортує меню й повідомить батьків.'],
+    ['Понеділок тижня (дата)', 'Активний тиждень — його бачать батьки. Лише понеділок. Найзручніше змінювати меню «▶ Новий тиждень»: воно ще й імпортує меню й повідомить батьків.'],
     ['Дедлайн: днів до понеділка', 'За скільки днів до понеділка закривається первинне замовлення: 1 = неділя, 2 = субота, 0 = сам понеділок.'],
     ['Дедлайн: час', 'Час закриття первинного замовлення, за Києвом.'],
     ['Дедлайн першого замовлення (авто)', 'Рахується сам із трьох рядків вище. Не редагувати — тут формула.'],
@@ -57,18 +57,18 @@ const SETTINGS_LAYOUT = [
     ['Після дедлайну', 'за правилами прийомів — точкові зміни у вікнах листа «Правила змін»; заборонено — лише перегляд; вільно — без обмежень (для тестів).'],
     ['Тиждень закрито', 'так — миттєво блокує всі зміни й нагадування, незалежно від дедлайнів (форс-мажор). Звично — ні.'],
   ] },
-  { title: 'ЛИСТИ БАТЬКАМ', hint: 'автоматичні email; працюють після меню «Увімкнути нагадування та email-сповіщення»', items: [
+  { title: 'ЛИСТИ БАТЬКАМ', hint: 'автоматичні email; працюють, коли ввімкнено «⚙️ Обслуговування → Автоматика: увімкнути»', items: [
     ['Нагадування: за годин до дедлайну', 'За скільки годин до дедлайну нагадати родинам, які ще не замовили (1–48).'],
   ] },
   { title: 'КЕЙТЕРИНГ', hint: 'звідки беремо меню і куди передаємо кількість порцій', items: [
     ['Кейтеринг: таблиця (посилання)', 'Посилання на Google-таблицю кейтерингу (можна прямо з адресного рядка, з #gid). Порожньо — меню вставляєте вручну в лист «Меню», кількості передаєте самі.'],
     ['Кейтеринг: лист меню', 'Лист зі складом страв у їхній таблиці. {тиждень} → 05.10-09.10. «ні» — меню завжди з листа «Меню», вставленого вручну.'],
     ['Кейтеринг: лист підрахунків', 'Лист, у який передаємо кількість порцій. {тиждень} → 05.10-09.10. Якщо не знайдено — береться лист з #gid у посиланні.'],
-    ['Кейтеринг: автопередача', 'так — кожні 15 хв, якщо кількості змінилися, система сама оновлює їхні «Підрахунки» (після перевірки). ні — лише з меню.'],
+    ['Кейтеринг: автопередача', 'так — кожні 15 хв, якщо кількості змінилися, система сама оновлює їхні «Підрахунки» (після перевірки); потрібна ввімкнена автоматика. ні — лише з меню.'],
   ] },
   { title: 'ДОСТУП', hint: 'адреси й ключі — змінюйте, лише якщо розумієте наслідки', items: [
     ['URL веб-додатку', 'Адреса форми (…/exec) з Deploy. Потрібна для посилань у листах, у «Токенах» і для адмін-посилання.'],
-    ['Адмін-токен', 'Ключ адмінпанелі. Очистіть і запустіть пункт меню 1 — буде створено новий, старе адмін-посилання перестане працювати.'],
+    ['Адмін-токен', 'Ключ адмінпанелі. Очистіть і запустіть «⚙️ Обслуговування → Оновити службові листи» — буде створено новий, старе адмін-посилання перестане працювати.'],
   ] },
 ];
 
@@ -77,10 +77,10 @@ const PAYMENT_HEADERS = ['Дата', 'ПІБ', 'Сума, грн', 'Комент
 
 // базові ціни — як у шаблоні кейтерингу («Всього» у їхньому листі «Замовлення»)
 const DEFAULT_PRICES = { 'Сніданок': 100, 'Обід': 230, 'Підвечірок': 100 };
-// колишні стартові значення-заглушки: якщо «Ціни» досі такі, пункт 1 замінює їх на DEFAULT_PRICES
+// колишні стартові значення-заглушки: якщо «Ціни» досі такі, «Оновити службові листи» замінює їх на DEFAULT_PRICES
 const PLACEHOLDER_PRICES = { 'Сніданок': 90, 'Обід': 200, 'Підвечірок': 90 };
 
-// лист переїзду: адмін вставляє сюди дані зі старої системи, далі пункт меню 4
+// лист переїзду: адмін вставляє сюди дані зі старої системи, далі «Обслуговування → Імпорт дітей і балансів»
 const IMPORT_HEADERS = ['ПІБ', 'Клас', 'Телефон 1', 'Телефон 2', 'Email 1', 'Email 2',
   'Баланс на старті, грн', 'Примітка', 'Статус', 'Результат'];
 // текст коментаря в «Оплатах», за яким видно вже перенесений баланс (захист від подвоєння)
@@ -89,50 +89,61 @@ const IMPORT_NOTE = 'Перенесення з попередньої систе
 // ---------------------------------------------------------------- меню адміна
 
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('🍲 Харчування')
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('🍲 Харчування')
+    .addItem('ℹ️ Стан системи: що працює зараз', 'showStatus')
     .addItem('▶ Новий тиждень: меню, дати, лист батькам', 'openNewWeek')
     .addSeparator()
-    .addItem('1. Створити/оновити службові листи', 'setupSheets')
-    .addItem('2. Меню: імпортувати з кейтерингу або перевірити вставлене', 'importMenu')
-    .addItem('3. Згенерувати персональні посилання', 'generateLinks')
-    .addItem('4. Імпорт: перенести список і баланси з листа «Імпорт»', 'importFromSheet')
+    .addItem('🍽 Кейтеринг: передати кількість порцій', 'cateringMenu')
+    .addItem('✔ Кейтеринг: позначити зміни переданими', 'markChangesSent')
+    .addItem('🔗 Посилання на адмінпанель', 'showAdminLink')
     .addSeparator()
-    .addItem('Кейтеринг: перевірити й передати кількість порцій', 'cateringMenu')
-    .addItem('Позначити зміни як передані кейтерингу', 'markChangesSent')
-    .addItem('Оновити «Зведення» і «Баланс»', 'refreshAll')
-    .addSeparator()
-    .addItem('Показати посилання на адмін-панель', 'showAdminLink')
-    .addItem('Увімкнути нагадування та email-сповіщення', 'installTriggers')
-    .addItem('Надіслати батькам: відкрито замовлення на тиждень', 'announceWeekMenu')
-    .addItem('Надіслати баланси на email', 'sendBalanceEmails')
-    .addSeparator()
-    .addItem('ДЕМО: імпортувати дітей зі шкільної таблиці', 'seedRosterDemo')
-    .addItem('ДЕМО: згенерувати тестові замовлення', 'seedDemoOrders')
+    .addSubMenu(ui.createMenu('✉️ Листи батькам')
+      .addItem('Відкрито замовлення на тиждень', 'announceWeekMenu')
+      .addItem('Поточний баланс кожної дитини', 'sendBalanceEmails')
+      .addItem('Персональні посилання: оновити лист «Токени»', 'generateLinks'))
+    .addSubMenu(ui.createMenu('⚙️ Обслуговування')
+      .addItem('Автоматика: увімкнути (нагадування, оплати, кейтеринг)', 'installTriggers')
+      .addItem('Автоматика: вимкнути', 'removeTriggers')
+      .addSeparator()
+      .addItem('Меню тижня: імпортувати з кейтерингу або перевірити вставлене', 'importMenu')
+      .addItem('Перерахувати «Зведення» і «Баланс»', 'refreshAll')
+      .addItem('Імпорт дітей і балансів зі старої системи (лист «Імпорт»)', 'importFromSheet')
+      .addItem('Оновити службові листи (після оновлення коду)', 'setupSheets'))
+    .addSubMenu(ui.createMenu('🧪 Демо — не для робочої системи')
+      .addItem('Додати дітей зі шкільного списку', 'seedRosterDemo')
+      .addItem('Згенерувати тестові замовлення', 'seedDemoOrders'))
     .addToUi();
 }
 
-function ss() { return SpreadsheetApp.getActive(); }
+/**
+ * Захист пунктів меню й вікон таблиці. У вебдодатку getUi() кидає виняток, тож ці функції
+ * не виконаються, навіть якщо хтось викличе їх з браузера через google.script.run.
+ */
+function menuOnly_() { return SpreadsheetApp.getUi(); }
 
-function sheet(name, createIfMissing) {
-  let sh = ss().getSheetByName(name);
-  if (!sh && createIfMissing) sh = ss().insertSheet(name);
+function ss_() { return SpreadsheetApp.getActive(); }
+
+function sheet_(name, createIfMissing) {
+  let sh = ss_().getSheetByName(name);
+  if (!sh && createIfMissing) sh = ss_().insertSheet(name);
   return sh;
 }
 
-function orderHeaders() {
+function orderHeaders_() {
   const h = ['Тиждень', 'ПІБ'];
   for (let d = 0; d < 5; d++) for (let m = 0; m < 3; m++) h.push(DAY_SHORT[d] + ' ' + MEALS[m]);
   return h.concat(['Сума', 'Оновлено', 'Контакт']);
 }
 
-function newToken(len) { return Utilities.getUuid().replace(/-/g, '').slice(0, len || 10); }
+function newToken_(len) { return Utilities.getUuid().replace(/-/g, '').slice(0, len || 10); }
 
 /**
  * Базові ціни в «Ціни»: порожній лист → DEFAULT_PRICES; рівно три базові рядки без дат зі старими
  * заглушками 90/200/90 → DEFAULT_PRICES. Будь-які інші ціни (власні суми, рядки з датами) не чіпаються.
  * Повертає текст для підсумкового вікна або ''.
  */
-function seedPrices(prices) {
+function seedPrices_(prices) {
   if (prices.getLastRow() === 0) {
     prices.getRange(1, 1, 4, 3).setValues([['Прийом', 'Ціна, грн', 'Діє з (дата)']]
       .concat(MEALS.map(m => [m, DEFAULT_PRICES[m], ''])));
@@ -149,18 +160,18 @@ function seedPrices(prices) {
 }
 
 /** Лист «Налаштування»: блоки, значення (наявні зберігаються), пояснення, формати, формула дедлайну. */
-function setupSettings(dateRule, listRule, timeOptions) {
+function setupSettings_(dateRule, listRule, timeOptions) {
   // ---- «Налаштування» ----
   // лист розбито на блоки: рядок-заголовок блоку («■ …»), далі «параметр | значення | що це».
   // Скрипт шукає параметри за назвою в колонці A, тож блоки й пояснення на читання не впливають.
-  const st = sheet(SHEETS.SETTINGS, true);
+  const st = sheet_(SHEETS.SETTINGS, true);
   const DEFAULTS = {
     'Дедлайн: днів до понеділка': 1,
     'Дедлайн: час': '17:00',
     'Після дедлайну': MODE_RULES,
     'Тиждень закрито': 'ні',
     'Нагадування: за годин до дедлайну': 2,
-    'Адмін-токен': newToken(16),
+    'Адмін-токен': newToken_(16),
     'Кейтеринг: лист меню': 'Склад {тиждень}',
     'Кейтеринг: лист підрахунків': 'Підрахунки {тиждень}',
     'Кейтеринг: автопередача': 'ні',
@@ -235,11 +246,16 @@ function setupSettings(dateRule, listRule, timeOptions) {
       'так — кожні 15 хвилин, якщо кількості змінилися, система сама оновлює лист кейтерингу (після перевірки)')],
   };
   st.getRange(1, 1, st.getLastRow(), 1).getValues().forEach((r, i) => {
-    const f = CELL_FORMATS[String(r[0]).trim()];
+    const key = String(r[0]).trim();
+    const f = CELL_FORMATS[key];
     if (!f) return;
     const cell = st.getRange(i + 1, 2);
     cell.setNumberFormat(f[0]);
-    cell.setDataValidation(f[1]);
+    // понеділок: не просто дата, а саме понеділок — інакше тиждень з'їжджає (27.09 нд → «27.09-01.10»)
+    cell.setDataValidation(key === 'Понеділок тижня (дата)'
+      ? SpreadsheetApp.newDataValidation().requireFormulaSatisfied('=AND(ISNUMBER(B' + (i + 1) + '),WEEKDAY(B' + (i + 1) + ',2)=1)')
+        .setAllowInvalid(false).setHelpText('Лише понеділок, напр. 05.10.2026. Найпростіше — меню «▶ Новий тиждень».').build()
+      : f[1]);
   });
   const rM = rowOf('Понеділок тижня (дата)'), rD = rowOf('Дедлайн: днів до понеділка'),
         rT = rowOf('Дедлайн: час'), rA = rowOf('Дедлайн першого замовлення (авто)');
@@ -250,10 +266,11 @@ function setupSettings(dateRule, listRule, timeOptions) {
 }
 
 function setupSheets() {
-  ss().setSpreadsheetTimeZone(TZ);
+  menuOnly_();
+  ss_().setSpreadsheetTimeZone(TZ);
 
   const ensure = (name, headers) => {
-    const sh = sheet(name, true);
+    const sh = sheet_(name, true);
     if (sh.getLastRow() === 0 && headers && headers.length) {
       sh.getRange(1, 1, 1, headers.length).setValues([headers]);
       sh.setFrozenRows(1);
@@ -270,12 +287,12 @@ function setupSheets() {
   const listRule = (vals, strict, txt) => SpreadsheetApp.newDataValidation()
     .requireValueInList(vals, true).setAllowInvalid(!strict).setHelpText(txt).build();
 
-  setupSettings(dateRule, listRule, timeOptions);
+  setupSettings_(dateRule, listRule, timeOptions);
 
   // ---- «Список» ----
   // порядок колонок: ПІБ | Клас | Телефон 1 | Телефон 2 | Статус | Email 1 | Email 2 | Примітка
   // якщо лист має старий порядок — переставляємо колонки, зберігаючи дані кожної дитини
-  const roster = sheet(SHEETS.ROSTER, true);
+  const roster = sheet_(SHEETS.ROSTER, true);
   const W = ROSTER_HEADERS.length;
   const curCols = roster.getLastColumn();
   const curHead = curCols ? roster.getRange(1, 1, 1, curCols).getValues()[0].map(v => String(v || '').trim()) : [];
@@ -314,8 +331,8 @@ function setupSheets() {
   // ---- «Ціни» ----
   // ціни версіоновані: рядок діє з дати в колонці C (порожньо = від початку);
   // для тижня береться останній рядок з датою не пізніше його понеділка
-  const prices = sheet(SHEETS.PRICES, true);
-  const pricesNote = seedPrices(prices);
+  const prices = sheet_(SHEETS.PRICES, true);
+  const pricesNote = seedPrices_(prices);
   if (!String(prices.getRange(1, 3).getValue() || '').trim()) prices.getRange(1, 3).setValue('Діє з (дата)');
   prices.getRange('A2:A50').setDataValidation(listRule(MEALS, true, 'Сніданок / Обід / Підвечірок'));
   prices.getRange('B2:B50').setNumberFormat('0').setDataValidation(
@@ -343,12 +360,12 @@ function setupSheets() {
   rules.getRange('E2:E10').setNumberFormat('@').setDataValidation(listRule(timeOptions, false, 'Час у форматі 09:30'));
 
   // ---- решта листів ----
-  const raw = sheet(SHEETS.MENU_RAW, true);
+  const raw = sheet_(SHEETS.MENU_RAW, true);
   if (raw.getLastRow() === 0) {
     raw.getRange(1, 1).setValue('⬇ Вставте сюди вміст листа «Склад …» зі шкільної таблиці (Ctrl+A, Ctrl+C там → Ctrl+V тут), потім меню «🍲 Харчування» → пункт 2.');
   }
   ensure(SHEETS.MENU, ['День', 'Прийом', 'Варіант', 'Страви']);
-  const ordersSh = ensure(SHEETS.ORDERS, orderHeaders());
+  const ordersSh = ensure(SHEETS.ORDERS, orderHeaders_());
   const paymentsSh = ensure(SHEETS.PAYMENTS, PAYMENT_HEADERS);
   if (!String(paymentsSh.getRange(1, 5).getValue() || '').trim()) paymentsSh.getRange(1, 5).setValue('Повідомлено');
   const tokensSh = ensure(SHEETS.TOKENS, ['Контакт', 'Токен', 'Посилання', 'Діти']);
@@ -388,7 +405,7 @@ function setupSheets() {
   }
   imp.getRange(1, 1, 1, IMPORT_HEADERS.length).setFontWeight('bold').setBackground('#e3f1e9');
   imp.getRange(1, 1).setNote(
-    'Сюди вставте дані зі старої системи (Paste values only), потім меню → пункт 4.\n\n' +
+    'Сюди вставте дані зі старої системи (Paste values only), потім меню «⚙️ Обслуговування → Імпорт дітей і балансів».\n\n' +
     '• ПІБ — обов’язковий; саме під цим написанням дитина житиме далі.\n' +
     '• Клас — число 0–6 або порожньо.\n' +
     '• Баланс: додатний = передоплата, від’ємний = борг, порожньо = 0.\n' +
@@ -408,127 +425,143 @@ function setupSheets() {
 
   SpreadsheetApp.getUi().alert(
     'Службові листи готові.' + pricesNote + '\nЗаповніть «Список» (телефони/email, статус) — або, якщо переїжджаєте зі старої ' +
-    'системи, вставте дані в лист «Імпорт» і запустіть пункт меню 4.\n' +
+    'системи, вставте дані в лист «Імпорт» і запустіть «⚙️ Обслуговування → Імпорт дітей і балансів».\n' +
     'Перевірте «Ціни» і «Правила змін», у «Налаштуваннях» вкажіть понеділок тижня — ' +
     'дедлайн першого замовлення порахується сам.');
 }
 
 // ---------------------------------------------------------------- час (Львів)
 
-function ymdOf(date) {
+function ymdOf_(date) {
   const s = Utilities.formatDate(date, TZ, 'yyyy-MM-dd').split('-');
   return { y: +s[0], mo: +s[1], d: +s[2] };
 }
 
-function ymdAdd(ymd, n) {
+function ymdAdd_(ymd, n) {
   const u = new Date(Date.UTC(ymd.y, ymd.mo - 1, ymd.d + n));
   return { y: u.getUTCFullYear(), mo: u.getUTCMonth() + 1, d: u.getUTCDate() };
 }
 
-function ymdWeekday(ymd) { return new Date(Date.UTC(ymd.y, ymd.mo - 1, ymd.d)).getUTCDay(); } // 0 = нд
+function ymdWeekday_(ymd) { return new Date(Date.UTC(ymd.y, ymd.mo - 1, ymd.d)).getUTCDay(); } // 0 = нд
 
 const pad2 = n => ('0' + n).slice(-2);
 const dm = ymd => pad2(ymd.d) + '.' + pad2(ymd.mo);
 
-function atTime(ymd, t) {
+function atTime_(ymd, t) {
   return Utilities.parseDate(
     ymd.y + '-' + pad2(ymd.mo) + '-' + pad2(ymd.d) + ' ' + pad2(t.h) + ':' + pad2(t.m),
     TZ, 'yyyy-MM-dd HH:mm');
 }
 
-function parseTime(v, def) {
-  if (v instanceof Date) return parseTime(Utilities.formatDate(v, ss().getSpreadsheetTimeZone(), 'HH:mm'), def);
+function parseTime_(v, def) {
+  if (v instanceof Date) return parseTime_(Utilities.formatDate(v, ss_().getSpreadsheetTimeZone(), 'HH:mm'), def);
   const m = String(v || '').trim().match(/^(\d{1,2})[:.](\d{2})$/);
   if (m && +m[1] <= 23 && +m[2] <= 59) return { h: +m[1], m: +m[2] };
   return def;
 }
 
-function weekLabelOf(mondayYmd) { return dm(mondayYmd) + '-' + dm(ymdAdd(mondayYmd, 4)); }
+function weekLabelOf_(mondayYmd) { return dm(mondayYmd) + '-' + dm(ymdAdd_(mondayYmd, 4)); }
 
-function fmtDl(d) {
-  const ymd = ymdOf(d);
-  const wd = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][ymdWeekday(ymd)];
+function fmtDl_(d) {
+  const ymd = ymdOf_(d);
+  const wd = ['нд', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'][ymdWeekday_(ymd)];
   return wd + ' ' + Utilities.formatDate(d, TZ, 'dd.MM HH:mm');
 }
 
 // ---------------------------------------------------------------- налаштування і правила
 
+/** Найближчий понеділок: пт/сб/нд → наступний, вт/ср/чт → попередній, пн → той самий. */
+function nearestMonday_(ymd) { return ymdAdd_(ymd, [1, 0, -1, -2, -3, 3, 2][ymdWeekday_(ymd)]); }
+
+/** Записати дату понеділка в «Налаштування» як чисту дату (00:00 за поясом таблиці) — так формула дедлайну показує правильно. */
+function writeMonday_(ymd) {
+  const sh = sheet_(SHEETS.SETTINGS);
+  const row = sh.getRange(1, 1, sh.getLastRow(), 1).getValues().map(r => String(r[0]).trim()).indexOf('Понеділок тижня (дата)') + 1;
+  if (!row) return false;
+  sh.getRange(row, 2).setValue(Utilities.parseDate(ymd.y + '-' + pad2(ymd.mo) + '-' + pad2(ymd.d) + ' 00:00',
+    ss_().getSpreadsheetTimeZone(), 'yyyy-MM-dd HH:mm'));
+  return true;
+}
+
 /** Назва листа з налаштувань: порожньо → типова, «ні» / «—» → не використовувати (''). */
-function tabSetting(v, def) {
+function tabSetting_(v, def) {
   const t = String(v === undefined || v === null ? '' : v).trim();
   if (/^(ні|—|-|no)$/i.test(t)) return '';
   return t || def;
 }
 
-function getSettings() {
-  const sh = sheet(SHEETS.SETTINGS);
+function getSettings_() {
+  const sh = sheet_(SHEETS.SETTINGS);
   const map = {};
   if (sh) sh.getDataRange().getValues().forEach(r => { if (r[0]) map[String(r[0]).trim()] = r[1]; });
   const monday = map['Понеділок тижня (дата)'] instanceof Date ? map['Понеділок тижня (дата)'] : null;
-  const mondayYmd = monday ? ymdOf(monday) : null;
+  // тиждень завжди з понеділка: інший день (напр., неділя 27.09) → найближчий понеділок (28.09)
+  const rawYmd = monday ? ymdOf_(monday) : null;
+  const mondayYmd = rawYmd ? nearestMonday_(rawYmd) : null;
+  const mondayFixed = !!(rawYmd && ymdWeekday_(rawYmd) !== 1);
 
   let deadline = null;
   if (mondayYmd) {
     const daysBefore = (typeof map['Дедлайн: днів до понеділка'] === 'number') ? map['Дедлайн: днів до понеділка'] : 1;
-    const t = parseTime(map['Дедлайн: час'], { h: 17, m: 0 });
-    deadline = atTime(ymdAdd(mondayYmd, -daysBefore), t);
+    const t = parseTime_(map['Дедлайн: час'], { h: 17, m: 0 });
+    deadline = atTime_(ymdAdd_(mondayYmd, -daysBefore), t);
   }
   let mode = String(map['Після дедлайну'] || '').trim();
   if ([MODE_RULES, MODE_FORBID, MODE_FREE].indexOf(mode) === -1) mode = MODE_RULES;
   const closed = String(map['Тиждень закрито'] || '').trim().toLowerCase() === 'так';
 
   return {
-    monday, mondayYmd, deadline, mode, closed,
-    weekLabel: mondayYmd ? weekLabelOf(mondayYmd) : '',
-    dayLabels: mondayYmd ? DAYS.map((n, i) => n + ' ' + dm(ymdAdd(mondayYmd, i))) : [],
+    monday, mondayYmd, mondayFixed, deadline, mode, closed,
+    weekLabel: mondayYmd ? weekLabelOf_(mondayYmd) : '',
+    dayLabels: mondayYmd ? DAYS.map((n, i) => n + ' ' + dm(ymdAdd_(mondayYmd, i))) : [],
     appUrl: String(map['URL веб-додатку'] || '').trim(),
     adminToken: String(map['Адмін-токен'] || '').trim(),
     cateringUrl: String(map['Кейтеринг: таблиця (посилання)'] || '').trim(),
-    cateringTab: tabSetting(map['Кейтеринг: лист підрахунків'] !== undefined ? map['Кейтеринг: лист підрахунків'] : map['Кейтеринг: лист'], 'Підрахунки {тиждень}'),
-    cateringMenuTab: tabSetting(map['Кейтеринг: лист меню'], 'Склад {тиждень}'),
+    cateringTab: tabSetting_(map['Кейтеринг: лист підрахунків'] !== undefined ? map['Кейтеринг: лист підрахунків'] : map['Кейтеринг: лист'], 'Підрахунки {тиждень}'),
+    cateringMenuTab: tabSetting_(map['Кейтеринг: лист меню'], 'Склад {тиждень}'),
     cateringAuto: String(map['Кейтеринг: автопередача'] || '').trim().toLowerCase() === 'так',
     remindHours: (typeof map['Нагадування: за годин до дедлайну'] === 'number') ? map['Нагадування: за годин до дедлайну'] : 2,
     pastDeadline: !!(deadline && new Date() > deadline),
-    deadlineText: deadline ? fmtDl(deadline) : '',
+    deadlineText: deadline ? fmtDl_(deadline) : '',
   };
 }
 
-function getRules() {
+function getRules_() {
   const out = {};
   MEALS.forEach(m => { out[m] = Object.assign({}, DEFAULT_RULES[m]); });
-  const sh = sheet(SHEETS.RULES);
+  const sh = sheet_(SHEETS.RULES);
   if (sh && sh.getLastRow() > 1) {
     sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues().forEach(r => {
       const meal = String(r[0]).trim();
       if (!out[meal]) return;
       if (DAY_OFFSETS[String(r[1]).trim()] !== undefined) out[meal].chOff = DAY_OFFSETS[String(r[1]).trim()];
-      out[meal].chTime = parseTime(r[2], out[meal].chTime);
+      out[meal].chTime = parseTime_(r[2], out[meal].chTime);
       if (DAY_OFFSETS[String(r[3]).trim()] !== undefined) out[meal].cnOff = DAY_OFFSETS[String(r[3]).trim()];
-      out[meal].cnTime = parseTime(r[4], out[meal].cnTime);
+      out[meal].cnTime = parseTime_(r[4], out[meal].cnTime);
     });
   }
   return out;
 }
 
-function cellPermissions(st, rules) {
+function cellPermissions_(st, rules) {
   const now = new Date();
   const out = [];
   for (let d = 0; d < 5; d++) for (let m = 0; m < 3; m++) {
     const r = rules[MEALS[m]];
-    const dayYmd = ymdAdd(st.mondayYmd, d);
-    const mk = (off, t) => atTime(ymdAdd(dayYmd, -off), t);
+    const dayYmd = ymdAdd_(st.mondayYmd, d);
+    const mk = (off, t) => atTime_(ymdAdd_(dayYmd, -off), t);
     const chDl = mk(r.chOff, r.chTime), cnDl = mk(r.cnOff, r.cnTime);
     let c, x;
     if (st.closed) { c = false; x = false; }
     else if (!st.deadline || now <= st.deadline || st.mode === MODE_FREE) { c = true; x = true; }
     else if (st.mode === MODE_FORBID) { c = false; x = false; }
     else { c = now <= chDl; x = now <= cnDl; }
-    out.push({ c: c, x: x, ct: fmtDl(chDl), xt: fmtDl(cnDl) });
+    out.push({ c: c, x: x, ct: fmtDl_(chDl), xt: fmtDl_(cnDl) });
   }
   return out;
 }
 
-function rulesSummaryText(rules) {
+function rulesSummaryText_(rules) {
   const offName = off => ['того ж дня', 'попереднього дня', 'за 2 дні', 'за 3 дні'][off] || '';
   return MEALS.map(m => {
     const r = rules[m];
@@ -538,30 +571,30 @@ function rulesSummaryText(rules) {
 
 // ---------------------------------------------------------------- список, контакти
 
-function normPhone(v) {
+function normPhone_(v) {
   const digits = String(v || '').replace(/\D/g, '');
   return digits.length >= 9 ? digits.slice(-9) : null;
 }
-function normEmail(v) {
+function normEmail_(v) {
   const s = String(v || '').trim().toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) ? s : null;
 }
 /** Телефон або email → нормалізований контакт (або null). */
-function normContact(v) {
+function normContact_(v) {
   const s = String(v || '').trim();
-  return s.indexOf('@') !== -1 ? normEmail(s) : normPhone(s);
+  return s.indexOf('@') !== -1 ? normEmail_(s) : normPhone_(s);
 }
 
-function roster() {
-  const sh = sheet(SHEETS.ROSTER);
+function roster_() {
+  const sh = sheet_(SHEETS.ROSTER);
   if (!sh || sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, ROSTER_HEADERS.length).getValues()
     .map((r, i) => ({
       row: i + 2,
       name: String(r[0]).trim(),
       cls: String(r[1] || '').trim(),
-      phones: [normPhone(r[2]), normPhone(r[3])].filter(Boolean),
-      emails: [normEmail(r[5]), normEmail(r[6])].filter(Boolean),
+      phones: [normPhone_(r[2]), normPhone_(r[3])].filter(Boolean),
+      emails: [normEmail_(r[5]), normEmail_(r[6])].filter(Boolean),
       rawPhones: [String(r[2] || '').trim(), String(r[3] || '').trim()],
       rawEmails: [String(r[5] || '').trim(), String(r[6] || '').trim()],
       status: String(r[4] || '').trim(),
@@ -571,47 +604,48 @@ function roster() {
     .filter(k => k.name);
 }
 
-function childrenByContact(contact) {
-  return roster().filter(k => k.active && (k.phones.indexOf(contact) !== -1 || k.emails.indexOf(contact) !== -1));
+function childrenByContact_(contact) {
+  return roster_().filter(k => k.active && (k.phones.indexOf(contact) !== -1 || k.emails.indexOf(contact) !== -1));
 }
 
-function familyEmails(name) {
-  const k = roster().find(x => x.name === name);
+function familyEmails_(name) {
+  const k = roster_().find(x => x.name === name);
   return k ? k.emails : [];
 }
 
 // ---------------------------------------------------------------- токени
 
-function ensureToken(contact) {
-  const sh = sheet(SHEETS.TOKENS, true);
+function ensureToken_(contact) {
+  const sh = sheet_(SHEETS.TOKENS, true);
   const vals = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues() : [];
   for (const r of vals) if (String(r[0]) === contact) return String(r[1]);
-  const token = newToken(10);
+  const token = newToken_(10);
   sh.appendRow([contact, token, '', '']);
   return token;
 }
 
-function contactByToken(key) {
-  const sh = sheet(SHEETS.TOKENS);
+function contactByToken_(key) {
+  const sh = sheet_(SHEETS.TOKENS);
   if (!sh || sh.getLastRow() < 2) return null;
   const vals = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
   for (const r of vals) if (String(r[1]) === String(key).trim()) return String(r[0]);
   return null;
 }
 
-function linkFor(st, token) {
+function linkFor_(st, token) {
   return st.appUrl ? st.appUrl + (st.appUrl.indexOf('?') === -1 ? '?' : '&') + 'key=' + token : '';
 }
 
 function generateLinks() {
-  const st = getSettings();
+  menuOnly_();
+  const st = getSettings_();
   const byContact = {};
-  roster().forEach(k => { if (k.active) k.phones.concat(k.emails).forEach(c => { (byContact[c] = byContact[c] || []).push(k.name); }); });
+  roster_().forEach(k => { if (k.active) k.phones.concat(k.emails).forEach(c => { (byContact[c] = byContact[c] || []).push(k.name); }); });
   const rows = Object.keys(byContact).map(c => {
-    const token = ensureToken(c);
-    return [c, token, linkFor(st, token) || '(вкажіть «URL веб-додатку» в Налаштуваннях)', byContact[c].join(', ')];
+    const token = ensureToken_(c);
+    return [c, token, linkFor_(st, token) || '(вкажіть «URL веб-додатку» в Налаштуваннях)', byContact[c].join(', ')];
   });
-  const sh = sheet(SHEETS.TOKENS, true);
+  const sh = sheet_(SHEETS.TOKENS, true);
   sh.clearContents();
   sh.getRange(1, 1, 1, 4).setValues([['Контакт', 'Токен', 'Посилання', 'Діти']]);
   if (rows.length) sh.getRange(2, 1, rows.length, 4).setValues(rows);
@@ -619,7 +653,8 @@ function generateLinks() {
 }
 
 function showAdminLink() {
-  const st = getSettings();
+  menuOnly_();
+  const st = getSettings_();
   if (!st.appUrl) { SpreadsheetApp.getUi().alert('Спочатку вкажіть «URL веб-додатку» в Налаштуваннях.'); return; }
   const url = st.appUrl + (st.appUrl.indexOf('?') === -1 ? '?' : '&') + 'admin=' + st.adminToken;
   SpreadsheetApp.getUi().alert('Адмін-панель (не пересилайте батькам):\n\n' + url);
@@ -628,16 +663,16 @@ function showAdminLink() {
 // ---------------------------------------------------------------- ціни та меню
 
 /** Ціни, чинні на дату ymd (за замовчуванням — сьогодні): останній рядок з «Діє з» ≤ ymd. */
-function getPrices(ymd) {
-  ymd = ymd || ymdOf(new Date());
+function getPrices_(ymd) {
+  ymd = ymd || ymdOf_(new Date());
   const key = o => o.y * 10000 + o.mo * 100 + o.d;
   const target = key(ymd);
-  const sh = sheet(SHEETS.PRICES);
+  const sh = sheet_(SHEETS.PRICES);
   const best = {}; // meal -> { from, price }
   if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, 3).getValues().forEach(r => {
     const k = String(r[0]).trim();
     if (MEALS.indexOf(k) === -1) return;
-    const from = r[2] instanceof Date ? key(ymdOf(r[2])) : 0; // порожньо = від початку
+    const from = r[2] instanceof Date ? key(ymdOf_(r[2])) : 0; // порожньо = від початку
     if (from > target) return;
     if (!best[k] || from >= best[k].from) best[k] = { from: from, price: Number(r[1]) || 0 };
   });
@@ -648,7 +683,7 @@ function getPrices(ymd) {
 
 const normAp = s => String(s || '').replace(/[`’ʼ]/g, "'").replace(/\s+/g, ' ').trim();
 
-function fmtWeight(v) {
+function fmtWeight_(v) {
   if (v === null || v === '') return '';
   if (typeof v === 'number') return String(Math.round(v * 100) / 100);
   return String(v).trim();
@@ -658,7 +693,7 @@ function fmtWeight(v) {
  * Розбір листа «Склад …» (як у кейтерингу): день окремим рядком → «Прийом №N» → страви (колонка A) з вагою (B).
  * Повертає { out: рядки для «МенюДані», positions, dishes, missing: ['Пн Обід №2', …] }.
  */
-function parseMenuValues(vals) {
+function parseMenuValues_(vals) {
   let day = null, meal = null, variant = null, dishes = 0;
   const acc = {};
   for (const r of vals) {
@@ -678,7 +713,7 @@ function parseMenuValues(vals) {
       continue;
     }
     if (day && meal && variant) {
-      const w = fmtWeight(r[1]);
+      const w = fmtWeight_(r[1]);
       acc[day][meal][variant].push(w ? a + ' (' + w + ' г)' : a);
       dishes++;
     }
@@ -692,8 +727,8 @@ function parseMenuValues(vals) {
   return { out: out, positions: out.length - 1, dishes: dishes, missing: missing };
 }
 
-function writeMenuData(parsed) {
-  const menuSh = sheet(SHEETS.MENU, true);
+function writeMenuData_(parsed) {
+  const menuSh = sheet_(SHEETS.MENU, true);
   menuSh.clearContents();
   menuSh.getRange(1, 1, parsed.out.length, 4).setValues(parsed.out);
 }
@@ -705,14 +740,14 @@ function writeMenuData(parsed) {
  *  2) інакше (або forceManual) — наш лист «Меню», вставлений вручну.
  * Повертає { errors[], canFallback, source, copy (значення їхнього листа для «Меню»), parsed }.
  */
-function loadMenu(st, label, forceManual) {
+function loadMenu_(st, label, forceManual) {
   const res = { errors: [], canFallback: false, source: '', copy: null, parsed: null };
   let vals;
   if (!forceManual && st.cateringUrl && st.cateringMenuTab && label) {
     let book;
-    try { book = openTarget(st.cateringUrl); }
+    try { book = openTarget_(st.cateringUrl); }
     catch (e) {
-      res.errors.push(cateringOpenError(e));
+      res.errors.push(cateringOpenError_(e));
       res.canFallback = true; return res;
     }
     const name = String(st.cateringMenuTab).replace(/\{тиждень\}/g, label).trim();
@@ -722,7 +757,7 @@ function loadMenu(st, label, forceManual) {
         book.getSheets().map(x => '«' + x.getName() + '»').join(', ') + '. Можливо, кейтеринг ще не опублікував меню на ' + label + '.');
       res.canFallback = true; return res;
     }
-    const mon = parseYmdLabel(label);
+    const mon = parseYmdLabel_(label);
     const alt = mon ? dm(mon) + '.' + mon.y : '';
     const names = [sh.getName(), book.getName()];
     const hasWeek = names.some(t => t.indexOf(label) !== -1 || (alt && t.indexOf(alt) !== -1));
@@ -734,11 +769,11 @@ function loadMenu(st, label, forceManual) {
     res.copy = vals;
     res.source = 'таблиця кейтерингу, лист «' + name + '»';
   } else {
-    const raw = sheet(SHEETS.MENU_RAW);
+    const raw = sheet_(SHEETS.MENU_RAW);
     vals = raw && raw.getLastRow() ? raw.getDataRange().getValues() : [];
     res.source = 'лист «Меню» (вставлено вручну)';
   }
-  res.parsed = parseMenuValues(vals);
+  res.parsed = parseMenuValues_(vals);
   if (!res.parsed.positions) {
     res.errors.push('У джерелі (' + res.source + ') не знайдено жодної позиції меню. Очікую рядки «Понеділок», «Сніданок №1», страви…');
   }
@@ -746,20 +781,20 @@ function loadMenu(st, label, forceManual) {
 }
 
 /** «28.09-02.10» → {y, mo, d} понеділка (рік — найближчий до сьогодні). */
-function parseYmdLabel(label) { return mondayFromLabel(label, new Date()); }
+function parseYmdLabel_(label) { return mondayFromLabel_(label, new Date()); }
 
 /** Застосувати завантажене меню: копія їхнього листа в «Меню» + «МенюДані». */
-function applyMenu(m) {
+function applyMenu_(m) {
   if (m.copy) {
-    const raw = sheet(SHEETS.MENU_RAW, true);
+    const raw = sheet_(SHEETS.MENU_RAW, true);
     raw.clearContents();
     const w = Math.max.apply(null, m.copy.map(r => r.length));
     raw.getRange(1, 1, m.copy.length, w).setValues(m.copy.map(r => { const a = r.slice(); while (a.length < w) a.push(''); return a; }));
   }
-  writeMenuData(m.parsed);
+  writeMenuData_(m.parsed);
 }
 
-function menuReport(m) {
+function menuReport_(m) {
   const p = m.parsed;
   return 'Джерело: ' + m.source + '\nЗнайдено: ' + p.positions + ' з 30 позицій, ' + p.dishes + ' страв' +
     (p.missing.length ? '\n⚠ Немає: ' + p.missing.slice(0, 12).join(', ') + (p.missing.length > 12 ? ' … ще ' + (p.missing.length - 12) : '') +
@@ -768,34 +803,166 @@ function menuReport(m) {
 
 /** Пункт меню 2: імпорт меню на активний тиждень (з кейтерингу або з вставленого листа) з перевіркою. */
 function importMenu() {
+  menuOnly_();
   const ui = SpreadsheetApp.getUi();
-  const st = getSettings();
-  let m = loadMenu(st, st.weekLabel, false);
+  const st = getSettings_();
+  let m = loadMenu_(st, st.weekLabel, false);
   if (m.errors.length && m.canFallback) {
     const r = ui.alert('Меню', '• ' + m.errors.join('\n• ') + '\n\nВзяти меню, вставлене вручну в лист «Меню»?', ui.ButtonSet.YES_NO);
     if (r !== ui.Button.YES) return;
-    m = loadMenu(st, st.weekLabel, true);
+    m = loadMenu_(st, st.weekLabel, true);
   }
   if (m.errors.length) { ui.alert('Меню не імпортовано', '• ' + m.errors.join('\n• '), ui.ButtonSet.OK); return; }
   if (m.parsed.missing.length) {
-    const r = ui.alert('Меню', menuReport(m) + '\n\nЗберегти неповне меню?', ui.ButtonSet.YES_NO);
+    const r = ui.alert('Меню', menuReport_(m) + '\n\nЗберегти неповне меню?', ui.ButtonSet.YES_NO);
     if (r !== ui.Button.YES) return;
   }
-  applyMenu(m);
-  ui.alert('Меню імпортовано', menuReport(m) + (st.weekLabel ? '\nТиждень: ' + st.weekLabel : ''), ui.ButtonSet.OK);
+  applyMenu_(m);
+  ui.alert('Меню імпортовано', menuReport_(m) + (st.weekLabel ? '\nТиждень: ' + st.weekLabel : ''), ui.ButtonSet.OK);
 }
 
 /** Сумісність зі старою назвою пункту меню. */
 function parseMenuRaw() { importMenu(); }
 
+// ---------------------------------------------------------------- стан системи
+
+function fmtStamp_(v) {
+  const d = v instanceof Date ? v : new Date(v);
+  return isNaN(d.getTime()) ? String(v) : Utilities.formatDate(d, TZ, 'dd.MM HH:mm');
+}
+
+function escHtml_(v) {
+  return String(v === undefined || v === null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/** Поточний стан усього, що адміністратору треба знати: [{group, label, state ok|warn|err|off, text, hint}]. */
+function statusModel_() {
+  const st = getSettings_();
+  const rows = [];
+  const add = (group, label, state, text, hint) => rows.push({ group: group, label: label, state: state, text: text, hint: hint || '' });
+  const today = ymdOf_(new Date());
+  const props = PropertiesService.getScriptProperties();
+
+  if (!st.monday) add('Тиждень', 'Активний тиждень', 'err', 'не вказано', 'меню «▶ Новий тиждень»');
+  else {
+    add('Тиждень', 'Активний тиждень', st.mondayFixed ? 'warn' : 'ok', st.weekLabel +
+      (st.mondayFixed ? ' — у клітинці «Понеділок тижня» не понеділок, система взяла найближчий' : ''),
+      st.mondayFixed ? 'впишіть у «Налаштування» саме понеділок' : '');
+    let phase, ps = 'ok', hint = '';
+    if (ymdKey(ymdAdd_(st.mondayYmd, 4)) < ymdKey(today)) { phase = 'тиждень уже минув'; ps = 'warn'; hint = 'меню «▶ Новий тиждень»'; }
+    else if (st.closed) { phase = 'закрито адміністратором («Тиждень закрито» = так)'; ps = 'warn'; }
+    else if (!st.pastDeadline) phase = 'приймаємо замовлення до ' + st.deadlineText;
+    else if (st.mode === MODE_RULES) phase = 'первинне замовлення закрито, точкові зміни за «Правилами змін»';
+    else if (st.mode === MODE_FORBID) phase = 'первинне замовлення закрито, зміни заборонено';
+    else { phase = 'вільно: батьки можуть змінювати все'; ps = 'warn'; hint = 'режим для тестів — поверніть «за правилами прийомів»'; }
+    add('Тиждень', 'Етап', ps, phase, hint);
+    const orders = ordersForWeek_(st.weekLabel);
+    const act = roster_().filter(k => k.active);
+    const ans = act.filter(k => orders[k.name]).length;
+    add('Тиждень', 'Відповіли батьки', ans === act.length ? 'ok' : (ans ? 'warn' : 'off'), ans + ' з ' + act.length + ' дітей',
+      ans < act.length ? 'хто саме — адмінпанель → «Порції на день», сірі імена' : '');
+  }
+
+  const mSh = sheet_(SHEETS.MENU);
+  const pos = mSh && mSh.getLastRow() > 1 ? mSh.getLastRow() - 1 : 0;
+  add('Меню й ціни', 'Меню тижня', pos >= 30 ? 'ok' : (pos ? 'warn' : 'err'), pos + ' з 30 позицій',
+    pos < 30 ? '«⚙️ Обслуговування → Меню тижня: імпортувати…»' : '');
+  const pr = getPrices_(st.mondayYmd || undefined);
+  const priced = MEALS.every(m => pr[m] > 0);
+  add('Меню й ціни', 'Ціни', priced ? 'ok' : 'err', MEALS.map(m => m.toLowerCase() + ' ' + pr[m]).join(' · ') + ' грн',
+    priced ? '' : 'є прийом з ціною 0 — лист «Ціни»');
+
+  const trig = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
+  const has = n => trig.indexOf(n) !== -1;
+  const rem = st.weekLabel ? props.getProperty('reminded_' + st.weekLabel) : null;
+  add('Автоматика', 'Нагадування тим, хто не замовив', has('reminderTick') ? 'ok' : 'off',
+    has('reminderTick') ? 'увімкнено: за ' + st.remindHours + ' год до дедлайну' + (rem ? '; на цей тиждень уже надіслано ' + fmtStamp_(rem) : '') : 'вимкнено');
+  add('Автоматика', 'Лист про оплату, вписану в таблицю', has('onPaymentEdit') ? 'ok' : 'off',
+    has('onPaymentEdit') ? 'увімкнено' : 'вимкнено', 'оплата з адмінпанелі надсилає лист завжди');
+  if (!st.cateringAuto) add('Автоматика', 'Автопередача кейтерингу', 'off', 'вимкнено', '«Кейтеринг: автопередача» = ні');
+  else if (!has('cateringTick')) add('Автоматика', 'Автопередача кейтерингу', 'err', 'у налаштуваннях «так», але автоматику не ввімкнено', 'кнопка «Увімкнути автоматику» нижче');
+  else add('Автоматика', 'Автопередача кейтерингу', 'ok', 'увімкнено: кожні 15 хв, якщо кількості змінилися');
+
+  add('Кейтеринг', 'Таблиця кейтерингу', st.cateringUrl ? 'ok' : 'off', st.cateringUrl ? 'вказано' : 'не вказано: меню вручну, кількості передаєте самі');
+  const lg = sheet_(SHEETS.CAT_LOG);
+  if (lg && lg.getLastRow() > 1) {
+    const r = lg.getRange(lg.getLastRow(), 1, 1, 6).getValues()[0];
+    const bad = /❌/.test(r[3]), warn = /⚠/.test(r[3]);
+    add('Кейтеринг', 'Остання передача', bad ? 'err' : (warn ? 'warn' : 'ok'),
+      fmtStamp_(r[0]) + ' · ' + r[1] + ' · ' + r[3] + (r[4] ? ' (' + r[4] + ' клітинок)' : ''), bad || warn ? String(r[5]).slice(0, 180) : '');
+  } else add('Кейтеринг', 'Остання передача', 'off', 'ще не передавали');
+
+  const fam = familiesWithEmail_();
+  const ann = st.weekLabel ? props.getProperty('announced_' + st.weekLabel) : null;
+  add('Листи батькам', 'Про відкриття тижня', ann ? 'ok' : 'off',
+    ann ? 'надіслано ' + fmtStamp_(ann.split('|')[0]) + ' (' + (ann.split('|')[1] || '?') + ' листів)' : 'ще не надсилали',
+    ann ? '' : '«✉️ Листи батькам → Відкрито замовлення на тиждень»');
+  add('Листи батькам', 'Родин з email', fam.length ? 'ok' : 'warn', String(fam.length), fam.length ? '' : 'email вписуються у «Список»');
+  let q = null;
+  try { q = MailApp.getRemainingDailyQuota(); } catch (e) {}
+  add('Листи батькам', 'Можна надіслати сьогодні', q === null ? 'off' : (q >= fam.length ? 'ok' : 'warn'),
+    q === null ? 'невідомо' : q + ' адресатів', q !== null && q < fam.length ? 'менше, ніж родин з email — частина листів не піде' : '');
+
+  add('Доступ', 'Адреса форми', st.appUrl ? 'ok' : 'err', st.appUrl ? 'вказано' : 'не вказано: посилання в листах і «Токенах» порожні',
+    st.appUrl ? '' : '«Налаштування» → URL веб-додатку');
+  return { rows: rows, st: st, anyOn: AUTOMATION.some(has), allOn: AUTOMATION.every(has) };
+}
+
+function statusHtml_() {
+  const m = statusModel_();
+  const color = { ok: '#2e7d4f', warn: '#c77c1e', err: '#b3261e', off: '#9aa59d' };
+  let h = '', group = '';
+  m.rows.forEach(r => {
+    if (r.group !== group) { h += (group ? '</table>' : '') + '<h3>' + escHtml_(r.group) + '</h3><table>'; group = r.group; }
+    h += '<tr><td class="dot"><i style="background:' + color[r.state] + '"></i></td><td class="lb">' + escHtml_(r.label) + '</td>' +
+      '<td><div>' + escHtml_(r.text) + '</div>' + (r.hint ? '<div class="hn">' + escHtml_(r.hint) + '</div>' : '') + '</td></tr>';
+  });
+  h += '</table><div class="bar">';
+  if (!m.allOn) h += '<button onclick="run(\'statusAutomation\', true)">Увімкнути автоматику</button>';
+  if (m.anyOn) h += '<button class="sec" onclick="run(\'statusAutomation\', false)">Вимкнути автоматику</button>';
+  h += '<button class="sec" onclick="run(\'statusRefresh\')">Оновити</button>';
+  if (m.st.appUrl) {
+    const sep = m.st.appUrl.indexOf('?') === -1 ? '?' : '&';
+    h += '<a href="' + escHtml_(m.st.appUrl) + '" target="_blank">Форма батьків ↗</a>' +
+      '<a href="' + escHtml_(m.st.appUrl + sep + 'admin=' + m.st.adminToken) + '" target="_blank">Адмінпанель ↗</a>';
+  }
+  h += '</div><p class="ft">Автоматику показано для вашого акаунта (' + escHtml_(ownerEmail_()) + '). ' +
+    'Стан на ' + escHtml_(fmtStamp_(new Date())) + '.</p>';
+  return h;
+}
+
+/** Меню «ℹ️ Стан системи». */
+function showStatus() {
+  menuOnly_();
+  const page = '<!DOCTYPE html><html><head><base target="_top"><style>' +
+    'body{font:13px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;color:#1c2b21;margin:0;padding:4px 6px}' +
+    'h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#2e7d4f;margin:14px 0 4px}' +
+    'table{width:100%;border-collapse:collapse}td{padding:5px 6px;border-top:1px solid #e9efe8;vertical-align:top}' +
+    'td.dot{width:14px;padding-top:9px}td.dot i{display:block;width:9px;height:9px;border-radius:50%}' +
+    'td.lb{width:210px;color:#5c6a5f}.hn{color:#8b9a8f;font-size:12px}' +
+    '.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px}' +
+    'button{font-weight:600;font-size:13px;font-family:inherit;border:0;border-radius:8px;padding:8px 14px;background:#2e7d4f;color:#fff;cursor:pointer}' +
+    'button.sec{background:#e3f1e9;color:#2e7d4f}a{color:#2e7d4f;font-weight:600;margin-left:6px}' +
+    '.ft{color:#8b9a8f;font-size:11.5px;margin-top:12px}#busy{color:#8b9a8f;margin-left:6px}' +
+    '</style></head><body><div id="b">' + statusHtml_() + '</div><span id="busy"></span>' +
+    '<script>function run(fn,arg){document.getElementById("busy").textContent="…";' +
+    'google.script.run.withSuccessHandler(function(h){document.getElementById("b").innerHTML=h;document.getElementById("busy").textContent="";})' +
+    '.withFailureHandler(function(e){document.getElementById("busy").textContent=e.message;})[fn](arg);}</script></body></html>';
+  SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutput(page).setWidth(700).setHeight(640), 'ℹ️ Стан системи');
+}
+
+/** Кнопки у вікні «Стан системи» (лише з таблиці — menuOnly_). */
+function statusRefresh() { menuOnly_(); return statusHtml_(); }
+function statusAutomation(on) { menuOnly_(); if (on) enableAutomation_(); else disableAutomation_(); return statusHtml_(); }
+
 // ---------------------------------------------------------------- новий тиждень
 
 /** «07.10.2026» / «7.10.2026» → {y, mo, d} або null. */
-function parseDmy(t) {
+function parseDmy_(t) {
   const m = /^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/.exec(String(t || '').trim());
   if (!m) return null;
   const o = { y: +m[3], mo: +m[2], d: +m[1] };
-  const chk = ymdAdd(o, 0);
+  const chk = ymdAdd_(o, 0);
   return (chk.y === o.y && chk.mo === o.mo && chk.d === o.d) ? o : null;
 }
 
@@ -804,87 +971,95 @@ function parseDmy(t) {
  * (тиждень, дедлайн, меню) → ставить «Понеділок тижня» → перебудовує «Зведення» → пропонує лист батькам.
  */
 function openNewWeek() {
+  menuOnly_();
   const ui = SpreadsheetApp.getUi();
-  const st = getSettings();
-  const today = ymdOf(new Date());
-  const nextMon = ymdAdd(today, ((8 - ymdWeekday(today)) % 7) || 7);
-  let prop = st.mondayYmd ? ymdAdd(st.mondayYmd, 7) : nextMon;
+  const st = getSettings_();
+  const today = ymdOf_(new Date());
+  const nextMon = ymdAdd_(today, ((8 - ymdWeekday_(today)) % 7) || 7);
+  // активний тиждень ще попереду й про нього ще не повідомляли — його й пропонуємо «відкрити»;
+  // інакше — наступний після активного (але не в минулому)
+  const announced = st.weekLabel && PropertiesService.getScriptProperties().getProperty('announced_' + st.weekLabel);
+  let prop;
+  if (st.mondayYmd && ymdKey(st.mondayYmd) > ymdKey(today) && !announced) prop = st.mondayYmd;
+  else prop = st.mondayYmd ? ymdAdd_(st.mondayYmd, 7) : nextMon;
   if (ymdKey(prop) < ymdKey(today)) prop = nextMon;
 
+  const same = st.mondayYmd && ymdKey(prop) === ymdKey(st.mondayYmd);
+  const after = same ? ymdAdd_(prop, 7) : null;
   const resp = ui.prompt('▶ Новий тиждень',
-    'Відкрити замовлення на тиждень ' + weekLabelOf(prop) + ' (понеділок ' + dm(prop) + '.' + prop.y + ')?\n\n' +
-    'OK — так. Або впишіть іншу дату понеділка у форматі дд.мм.рррр.' +
-    (st.weekLabel ? '\nЗараз активний тиждень: ' + st.weekLabel + '.' : ''), ui.ButtonSet.OK_CANCEL);
+    (same
+      ? 'Тиждень ' + weekLabelOf_(prop) + ' уже вказаний як активний, але батькам про нього ще не повідомляли.\n' +
+        'OK — імпортувати меню й відкрити саме його.\n\nДля іншого тижня впишіть дату його понеділка (наприклад, ' + dm(after) + '.' + after.y + ').'
+      : 'Відкрити замовлення на тиждень ' + weekLabelOf_(prop) + ' (понеділок ' + dm(prop) + '.' + prop.y + ')?\n\n' +
+        'OK — так. Або впишіть іншу дату понеділка у форматі дд.мм.рррр.' +
+        (st.weekLabel ? '\nЗараз активний тиждень: ' + st.weekLabel + '.' : '')), ui.ButtonSet.OK_CANCEL);
   if (resp.getSelectedButton() !== ui.Button.OK) return;
   let mon = prop;
   const typed = resp.getResponseText().trim();
   if (typed) {
-    mon = parseDmy(typed);
+    mon = parseDmy_(typed);
     if (!mon) { ui.alert('Не розпізнав дату «' + typed + '». Формат: 05.10.2026.'); return; }
-    if (ymdWeekday(mon) !== 1) { ui.alert(typed + ' — не понеділок. Вкажіть дату понеділка.'); return; }
+    if (ymdWeekday_(mon) !== 1) { ui.alert(typed + ' — не понеділок. Вкажіть дату понеділка.'); return; }
   }
-  const label = weekLabelOf(mon);
+  const label = weekLabelOf_(mon);
 
   // меню на новий тиждень
-  let m = loadMenu(st, label, false);
+  let m = loadMenu_(st, label, false);
   if (m.errors.length && m.canFallback) {
     const r = ui.alert('Меню', '• ' + m.errors.join('\n• ') + '\n\nВзяти меню, вставлене вручну в лист «Меню»? (Спершу вставте туди «Склад» на ' + label + '.)', ui.ButtonSet.YES_NO);
     if (r !== ui.Button.YES) return;
-    m = loadMenu(st, label, true);
+    m = loadMenu_(st, label, true);
   }
   if (m.errors.length) { ui.alert('Тиждень не відкрито', '• ' + m.errors.join('\n• '), ui.ButtonSet.OK); return; }
 
   // дедлайн нового тижня — тією самою формулою, що й у «Налаштуваннях»
-  const shS = sheet(SHEETS.SETTINGS);
+  const shS = sheet_(SHEETS.SETTINGS);
   const map = {};
   shS.getDataRange().getValues().forEach(r => { if (r[0]) map[String(r[0]).trim()] = r[1]; });
   const daysBefore = (typeof map['Дедлайн: днів до понеділка'] === 'number') ? map['Дедлайн: днів до понеділка'] : 1;
-  const dl = atTime(ymdAdd(mon, -daysBefore), parseTime(map['Дедлайн: час'], { h: 17, m: 0 }));
+  const dl = atTime_(ymdAdd_(mon, -daysBefore), parseTime_(map['Дедлайн: час'], { h: 17, m: 0 }));
   const late = new Date() > dl;
 
   const ok = ui.alert('▶ Новий тиждень ' + label,
-    'Тиждень: ' + label + '\nПервинне замовлення — до ' + fmtDl(dl) +
+    'Тиждень: ' + label + '\nПервинне замовлення — до ' + fmtDl_(dl) +
     (late ? '\n⚠ Цей дедлайн уже минув — батьки зможуть лише точкові зміни за «Правилами змін».' : '') +
-    '\n\n' + menuReport(m) + '\n\nВідкрити тиждень?', ui.ButtonSet.OK_CANCEL);
+    '\n\n' + menuReport_(m) + '\n\nВідкрити тиждень?', ui.ButtonSet.OK_CANCEL);
   if (ok !== ui.Button.OK) return;
 
-  applyMenu(m);
-  const labels = shS.getRange(1, 1, shS.getLastRow(), 1).getValues().map(r => String(r[0]).trim());
-  const row = labels.indexOf('Понеділок тижня (дата)') + 1;
-  if (!row) { ui.alert('У «Налаштуваннях» немає рядка «Понеділок тижня (дата)» — запустіть пункт меню 1.'); return; }
-  shS.getRange(row, 2).setValue(atTime(mon, { h: 12, m: 0 }));
+  applyMenu_(m);
+  if (!writeMonday_(mon)) { ui.alert('У «Налаштуваннях» немає рядка «Понеділок тижня (дата)» — запустіть «⚙️ Обслуговування → Оновити службові листи».'); return; }
   SpreadsheetApp.flush();
-  refreshSummary();
+  refreshSummary_();
 
-  const st2 = getSettings();
-  const fam = familiesWithEmail();
+  const st2 = getSettings_();
+  const fam = familiesWithEmail_();
   let msg = 'Тиждень ' + st2.weekLabel + ' відкрито, дедлайн — ' + st2.deadlineText + '.';
   if (!fam.length) { ui.alert('Готово', msg + '\n\nНі в кого у «Списку» немає email — лист батькам не надсилався.', ui.ButtonSet.OK); return; }
   const r = ui.alert('Готово', msg + '\n\nНадіслати ' + fam.length + ' родинам лист «Відкрито замовлення на тиждень ' + st2.weekLabel + '» з посиланням на форму?', ui.ButtonSet.YES_NO);
   if (r === ui.Button.YES) {
-    const res = sendNewWeekEmails(st2);
+    const res = sendNewWeekEmails_(st2);
     ui.alert('Лист батькам', 'Надіслано: ' + res.sent + ' з ' + res.total + '.' + (res.sent < res.total ? '\nЧастину не надіслано — імовірно, вичерпано добовий ліміт пошти.' : ''), ui.ButtonSet.OK);
   }
 }
 
 /** email → діти, для активних дітей. */
-function familiesWithEmail() {
+function familiesWithEmail_() {
   const byEmail = {};
-  roster().filter(k => k.active).forEach(k => k.emails.forEach(e => { (byEmail[e] = byEmail[e] || []).push(k.name); }));
+  roster_().filter(k => k.active).forEach(k => k.emails.forEach(e => { (byEmail[e] = byEmail[e] || []).push(k.name); }));
   return Object.keys(byEmail).map(e => ({ email: e, kids: byEmail[e] }));
 }
 
 /** Лист «Відкрито замовлення на тиждень …» — один на адресу, з переліком її дітей і персональним посиланням. */
-function sendNewWeekEmails(st) {
-  const fam = familiesWithEmail();
-  const rules = getRules();
+function sendNewWeekEmails_(st) {
+  const fam = familiesWithEmail_();
+  const rules = getRules_();
   let sent = 0;
   fam.forEach(f => {
-    const link = linkFor(st, ensureToken(f.email));
-    if (sendMail([f.email], 'Відкрито замовлення харчування на тиждень ' + st.weekLabel,
+    const link = linkFor_(st, ensureToken_(f.email));
+    if (sendMail_([f.email], 'Відкрито замовлення харчування на тиждень ' + st.weekLabel,
       'Доброго дня!\n\nВідкрито замовлення харчування на тиждень ' + st.weekLabel + ' для: ' + f.kids.join(', ') + '.\n' +
       'Первинне замовлення — до ' + st.deadlineText + '.\n' +
-      'Після цього — лише точкові зміни: ' + rulesSummaryText(rules) + '.' +
+      'Після цього — лише точкові зміни: ' + rulesSummaryText_(rules) + '.' +
       (link ? '\n\nЗамовити: ' + link : '') + '\n\nДякуємо!')) sent++;
   });
   PropertiesService.getScriptProperties().setProperty('announced_' + st.weekLabel, new Date().toISOString() + '|' + sent);
@@ -893,10 +1068,11 @@ function sendNewWeekEmails(st) {
 
 /** Окремий пункт меню: (повторно) повідомити батьків про відкритий тиждень. */
 function announceWeekMenu() {
+  menuOnly_();
   const ui = SpreadsheetApp.getUi();
-  const st = getSettings();
+  const st = getSettings_();
   if (!st.monday) { ui.alert('Спочатку відкрийте тиждень: меню «▶ Новий тиждень».'); return; }
-  const fam = familiesWithEmail();
+  const fam = familiesWithEmail_();
   if (!fam.length) { ui.alert('Ні в кого у «Списку» немає email.'); return; }
   const was = PropertiesService.getScriptProperties().getProperty('announced_' + st.weekLabel);
   const when = was ? Utilities.formatDate(new Date(was.split('|')[0]), TZ, 'dd.MM HH:mm') : '';
@@ -904,12 +1080,12 @@ function announceWeekMenu() {
     'Надіслати ' + fam.length + ' родинам лист «Відкрито замовлення на тиждень ' + st.weekLabel + '» (дедлайн ' + st.deadlineText + ')?',
     ui.ButtonSet.YES_NO);
   if (r !== ui.Button.YES) return;
-  const res = sendNewWeekEmails(st);
+  const res = sendNewWeekEmails_(st);
   ui.alert('Надіслано: ' + res.sent + ' з ' + res.total + '.');
 }
 
-function getMenu() {
-  const sh = sheet(SHEETS.MENU);
+function getMenu_() {
+  const sh = sheet_(SHEETS.MENU);
   const menu = {};
   if (!sh || sh.getLastRow() < 2) return menu;
   sh.getRange(2, 1, sh.getLastRow() - 1, 4).getValues().forEach(r => {
@@ -924,17 +1100,17 @@ function getMenu() {
 
 // ---------------------------------------------------------------- замовлення (БД)
 
-function ordersForWeek(weekLabel) {
-  const sh = sheet(SHEETS.ORDERS);
+function ordersForWeek_(weekLabel) {
+  const sh = sheet_(SHEETS.ORDERS);
   const map = {};
   if (!sh || sh.getLastRow() < 2) return map;
-  sh.getRange(2, 1, sh.getLastRow() - 1, orderHeaders().length).getValues().forEach(r => {
+  sh.getRange(2, 1, sh.getLastRow() - 1, orderHeaders_().length).getValues().forEach(r => {
     if (String(r[0]) === weekLabel) map[String(r[1])] = r.slice(2, 17).map(c => CHOICES.indexOf(String(c)) !== -1 ? String(c) : NONE);
   });
   return map;
 }
 
-function upsertRow(sh, weekLabel, name, row) {
+function upsertRow_(sh, weekLabel, name, row) {
   if (sh.getLastRow() > 1) {
     const vals = sh.getRange(2, 1, sh.getLastRow() - 1, 2).getValues();
     for (let i = 0; i < vals.length; i++) {
@@ -947,27 +1123,28 @@ function upsertRow(sh, weekLabel, name, row) {
   sh.appendRow(row);
 }
 
-function upsertOrder(weekLabel, name, choices, sum, contact) {
-  upsertRow(sheet(SHEETS.ORDERS, true), weekLabel, name, [weekLabel, name].concat(choices).concat([sum, new Date(), contact]));
+function upsertOrder_(weekLabel, name, choices, sum, contact) {
+  upsertRow_(sheet_(SHEETS.ORDERS, true), weekLabel, name, [weekLabel, name].concat(choices).concat([sum, new Date(), contact]));
 }
 
-function logChanges(st, name, contact, parts) {
+function logChanges_(st, name, contact, parts) {
   if (!parts.length) return;
-  sheet(SHEETS.LOG, true).appendRow([
+  sheet_(SHEETS.LOG, true).appendRow([
     new Date(), st.weekLabel, name, contact, parts.join('; '), st.pastDeadline ? 'так' : 'ні', '',
   ]);
 }
 
 function markChangesSent() {
-  const sh = sheet(SHEETS.LOG);
+  menuOnly_();
+  const sh = sheet_(SHEETS.LOG);
   if (!sh || sh.getLastRow() < 2) { SpreadsheetApp.getUi().alert('Журнал змін порожній.'); return; }
-  const n = markSent('', true);
+  const n = markSent_('', true);
   SpreadsheetApp.getUi().alert(n ? 'Позначено переданими: ' + n + ' змін.' : 'Непереданих змін немає.');
 }
 
 /** Кількість непозначених змін (weekLabel порожній = усі тижні); write=true — ще й позначає їх «так». */
-function markSent(weekLabel, write) {
-  const sh = sheet(SHEETS.LOG);
+function markSent_(weekLabel, write) {
+  const sh = sheet_(SHEETS.LOG);
   if (!sh || sh.getLastRow() < 2) return 0;
   const rng = sh.getRange(2, 1, sh.getLastRow() - 1, 7);
   const vals = rng.getValues();
@@ -991,20 +1168,21 @@ function markSent(weekLabel, write) {
  * Результат по кожному рядку пишеться в колонку «Результат».
  */
 function importFromSheet() {
+  menuOnly_();
   const ui = SpreadsheetApp.getUi();
-  const sh = sheet(SHEETS.IMPORT);
+  const sh = sheet_(SHEETS.IMPORT);
   if (!sh || sh.getLastRow() < 2) {
     ui.alert('Лист «Імпорт» порожній.\n\nВставте туди список зі старої системи (ПІБ, клас, контакти, баланс) і запустіть пункт меню ще раз.');
     return;
   }
 
   const rows = sh.getRange(2, 1, sh.getLastRow() - 1, IMPORT_HEADERS.length).getValues();
-  const rosterSh = sheet(SHEETS.ROSTER, true);
+  const rosterSh = sheet_(SHEETS.ROSTER, true);
   const byName = {};
-  roster().forEach(k => { byName[k.name] = k; });
+  roster_().forEach(k => { byName[k.name] = k; });
 
   // хто вже отримував стартовий баланс
-  const pSh = sheet(SHEETS.PAYMENTS, true);
+  const pSh = sheet_(SHEETS.PAYMENTS, true);
   const balDone = {};
   if (pSh.getLastRow() > 1) {
     pSh.getRange(2, 1, pSh.getLastRow() - 1, 4).getValues().forEach(r => {
@@ -1031,9 +1209,9 @@ function importFromSheet() {
     if (cls && !/^[0-6]$/.test(cls)) { warn.push('клас «' + cls + '» не 0–6 → порожньо'); cls = ''; }
 
     const ph = [String(r[2] || '').trim(), String(r[3] || '').trim()];
-    ph.forEach((v, j) => { if (v && !normPhone(v)) warn.push('телефон ' + (j + 1) + ': менше 9 цифр'); });
+    ph.forEach((v, j) => { if (v && !normPhone_(v)) warn.push('телефон ' + (j + 1) + ': менше 9 цифр'); });
     const em = [String(r[4] || '').trim(), String(r[5] || '').trim()];
-    em.forEach((v, j) => { if (v && !normEmail(v)) warn.push('email ' + (j + 1) + ': не схоже на адресу'); });
+    em.forEach((v, j) => { if (v && !normEmail_(v)) warn.push('email ' + (j + 1) + ': не схоже на адресу'); });
 
     let bal = 0;
     const rawBal = r[6];
@@ -1093,7 +1271,7 @@ function importFromSheet() {
   }
   sh.getRange(2, IMPORT_HEADERS.length, results.length, 1).setValues(results.map(v => [v]));
 
-  refreshBalance();
+  refreshBalance_();
 
   ui.alert('Імпорт завершено',
     'Додано: ' + toAdd.length + '\n' +
@@ -1107,12 +1285,12 @@ function importFromSheet() {
 // ---------------------------------------------------------------- баланси
 
 /** { ПІБ: { ordered, orderedBefore(без тижня excludeWeek), paid } } */
-function computeBalances(excludeWeek) {
+function computeBalances_(excludeWeek) {
   const acc = {};
   const get = n => (acc[n] = acc[n] || { ordered: 0, orderedBefore: 0, paid: 0 });
-  const oSh = sheet(SHEETS.ORDERS);
+  const oSh = sheet_(SHEETS.ORDERS);
   if (oSh && oSh.getLastRow() > 1) {
-    oSh.getRange(2, 1, oSh.getLastRow() - 1, orderHeaders().length).getValues().forEach(r => {
+    oSh.getRange(2, 1, oSh.getLastRow() - 1, orderHeaders_().length).getValues().forEach(r => {
       const name = String(r[1]).trim();
       if (!name) return;
       const sum = Number(r[17]) || 0;
@@ -1120,7 +1298,7 @@ function computeBalances(excludeWeek) {
       if (String(r[0]) !== excludeWeek) get(name).orderedBefore += sum;
     });
   }
-  const pSh = sheet(SHEETS.PAYMENTS);
+  const pSh = sheet_(SHEETS.PAYMENTS);
   if (pSh && pSh.getLastRow() > 1) {
     pSh.getRange(2, 1, pSh.getLastRow() - 1, 3).getValues().forEach(r => {
       const name = String(r[1]).trim();
@@ -1135,25 +1313,25 @@ function computeBalances(excludeWeek) {
 const WD_SHORT = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 const ymdKey = o => o.y * 10000 + o.mo * 100 + o.d;
 const ymdStr = o => o.y + '-' + pad2(o.mo) + '-' + pad2(o.d);
-function parseYmd(v) {
+function parseYmd_(v) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || '').trim());
   return m ? { y: +m[1], mo: +m[2], d: +m[3] } : null;
 }
-function ymdDiff(a, b) { return Math.round((Date.UTC(a.y, a.mo - 1, a.d) - Date.UTC(b.y, b.mo - 1, b.d)) / 864e5); }
+function ymdDiff_(a, b) { return Math.round((Date.UTC(a.y, a.mo - 1, a.d) - Date.UTC(b.y, b.mo - 1, b.d)) / 864e5); }
 
 /**
  * Ярлик тижня «07.09-11.09» не містить року. Відновлюємо його за датою поруч
  * (коли збережено замовлення / записано зміну): з трьох кандидатних років беремо
  * той, де ця дата — понеділок і найближча до «поруч». Переходи через Новий рік теж працюють.
  */
-function mondayFromLabel(label, near) {
+function mondayFromLabel_(label, near) {
   const m = /^(\d{2})\.(\d{2})-/.exec(String(label || '').trim());
   if (!m) return null;
-  const ref = ymdOf(near instanceof Date ? near : new Date());
+  const ref = ymdOf_(near instanceof Date ? near : new Date());
   let best = null, bestScore = Infinity;
   [ref.y - 1, ref.y, ref.y + 1].forEach(y => {
     const c = { y: y, mo: +m[2], d: +m[1] };
-    const score = Math.abs(ymdDiff(c, ref)) + (ymdWeekday(c) === 1 ? 0 : 10000);
+    const score = Math.abs(ymdDiff_(c, ref)) + (ymdWeekday_(c) === 1 ? 0 : 10000);
     if (score < bestScore) { bestScore = score; best = c; }
   });
   return best;
@@ -1167,54 +1345,54 @@ function mondayFromLabel(label, near) {
  *  - оплати за їхньою датою (без дати — вважаються давніми, входять у баланс на початок);
  *  - історія змін з «Журналу змін», прив'язана до дня, якого вона стосується.
  */
-function buildStatement(name, from, to) {
+function buildStatement_(name, from, to) {
   const days = {};
   const dayOf = ymd => (days[ymdKey(ymd)] = days[ymdKey(ymd)] ||
     { ymd: ymd, charge: 0, items: [], changes: [], fix: 0 });
 
-  const oSh = sheet(SHEETS.ORDERS);
+  const oSh = sheet_(SHEETS.ORDERS);
   if (oSh && oSh.getLastRow() > 1) {
-    oSh.getRange(2, 1, oSh.getLastRow() - 1, orderHeaders().length).getValues().forEach(r => {
+    oSh.getRange(2, 1, oSh.getLastRow() - 1, orderHeaders_().length).getValues().forEach(r => {
       if (String(r[1]).trim() !== name) return;
-      const mon = mondayFromLabel(r[0], r[18]);
+      const mon = mondayFromLabel_(r[0], r[18]);
       if (!mon) return;
-      const prices = getPrices(mon);
+      const prices = getPrices_(mon);
       let calc = 0, last = null;
       for (let d = 0; d < 5; d++) for (let m = 0; m < 3; m++) {
         const c = String(r[2 + d * 3 + m]);
         if (c !== '№1' && c !== '№2') continue;
-        const ymd = ymdAdd(mon, d), price = prices[MEALS[m]] || 0, e = dayOf(ymd);
+        const ymd = ymdAdd_(mon, d), price = prices[MEALS[m]] || 0, e = dayOf(ymd);
         e.charge += price; e.items.push({ meal: MEALS[m], v: c, price: price });
         calc += price; last = ymd;
       }
       const diff = (Number(r[17]) || 0) - calc;
-      if (diff) { const e = dayOf(last || ymdAdd(mon, 4)); e.charge += diff; e.fix += diff; }
+      if (diff) { const e = dayOf(last || ymdAdd_(mon, 4)); e.charge += diff; e.fix += diff; }
     });
   }
 
   const pays = [];
-  const pSh = sheet(SHEETS.PAYMENTS);
+  const pSh = sheet_(SHEETS.PAYMENTS);
   if (pSh && pSh.getLastRow() > 1) {
     pSh.getRange(2, 1, pSh.getLastRow() - 1, 4).getValues().forEach(r => {
       if (String(r[1]).trim() !== name) return;
       const sum = Number(r[2]) || 0;
       if (!sum) return;
-      pays.push({ ymd: r[0] instanceof Date ? ymdOf(r[0]) : null, sum: sum, comment: String(r[3] || '').trim() });
+      pays.push({ ymd: r[0] instanceof Date ? ymdOf_(r[0]) : null, sum: sum, comment: String(r[3] || '').trim() });
     });
   }
 
-  const lSh = sheet(SHEETS.LOG);
+  const lSh = sheet_(SHEETS.LOG);
   if (lSh && lSh.getLastRow() > 1) {
     lSh.getRange(2, 1, lSh.getLastRow() - 1, 6).getValues().forEach(r => {
       if (String(r[2]).trim() !== name) return;
       const when = r[0] instanceof Date ? r[0] : null;
-      const mon = mondayFromLabel(r[1], when);
+      const mon = mondayFromLabel_(r[1], when);
       if (!mon) return;
       const late = String(r[5]).trim() === 'так';
       String(r[4] || '').split(/;\s*/).forEach(part => {
         const mm = /^(Пн|Вт|Ср|Чт|Пт)\s+(Сніданок|Обід|Підвечірок):\s*(.+)$/.exec(part.trim());
         if (!mm) return;
-        dayOf(ymdAdd(mon, DAY_SHORT.indexOf(mm[1]))).changes.push({
+        dayOf(ymdAdd_(mon, DAY_SHORT.indexOf(mm[1]))).changes.push({
           at: when ? when.getTime() : 0,
           when: when ? Utilities.formatDate(when, TZ, 'dd.MM HH:mm') : '',
           text: mm[2] + ': ' + mm[3],
@@ -1224,8 +1402,8 @@ function buildStatement(name, from, to) {
     });
   }
 
-  const fk = ymdKey(from), tk = ymdKey(to), today = ymdKey(ymdOf(new Date()));
-  const label = ymd => WD_SHORT[ymdWeekday(ymd)] + ' ' + dm(ymd);
+  const fk = ymdKey(from), tk = ymdKey(to), today = ymdKey(ymdOf_(new Date()));
+  const label = ymd => WD_SHORT[ymdWeekday_(ymd)] + ' ' + dm(ymd);
   let opening = 0;
   Object.keys(days).forEach(k => { if (+k < fk) opening -= days[k].charge; });
   pays.forEach(p => { if (!p.ymd || ymdKey(p.ymd) < fk) opening += p.sum; });
@@ -1262,10 +1440,10 @@ function buildStatement(name, from, to) {
   };
 }
 
-function statementRange(p) {
-  const today = ymdOf(new Date());
-  const from = parseYmd(p.from) || { y: today.y, mo: today.mo, d: 1 };
-  const to = parseYmd(p.to) || today;
+function statementRange_(p) {
+  const today = ymdOf_(new Date());
+  const from = parseYmd_(p.from) || { y: today.y, mo: today.mo, d: 1 };
+  const to = parseYmd_(p.to) || today;
   if (ymdKey(from) > ymdKey(to)) return { error: 'Дата «з» пізніша за дату «по».' };
   return { from: from, to: to };
 }
@@ -1274,23 +1452,23 @@ function statementRange(p) {
 function api_statement(p) {
   try {
     p = p || {};
-    const contact = resolveContact(p);
+    const contact = resolveContact_(p);
     if (!contact) return { error: 'Сесію не розпізнано. Оновіть сторінку.' };
-    if (!childrenByContact(contact).some(k => k.name === p.child)) return { error: 'Ця дитина не прив’язана до вашого контакту.' };
-    const rg = statementRange(p);
+    if (!childrenByContact_(contact).some(k => k.name === p.child)) return { error: 'Ця дитина не прив’язана до вашого контакту.' };
+    const rg = statementRange_(p);
     if (rg.error) return rg;
-    return buildStatement(p.child, rg.from, rg.to);
+    return buildStatement_(p.child, rg.from, rg.to);
   } catch (err) { return { error: 'Помилка: ' + err.message }; }
 }
 
 // ---------------------------------------------------------------- API для батьків
 
-function resolveContact(p) {
-  if (p.key) return contactByToken(p.key);
-  if (p.contact) return normContact(p.contact);
+function resolveContact_(p) {
+  if (p.key) return contactByToken_(p.key);
+  if (p.contact) return normContact_(p.contact);
   if (p.auto) {
     // Google віддає email лише коли користувач увійшов у акаунт того ж домену, що й власник скрипта
-    try { return normEmail(Session.getActiveUser().getEmail()); } catch (e) { return null; }
+    try { return normEmail_(Session.getActiveUser().getEmail()); } catch (e) { return null; }
   }
   return null;
 }
@@ -1298,31 +1476,31 @@ function resolveContact(p) {
 function api_init(p) {
   try {
     p = p || {};
-    const contact = resolveContact(p);
+    const contact = resolveContact_(p);
     if (!contact) {
       if (p.auto) return { needLogin: true };
       return { error: p.key ? 'Посилання недійсне. Увійдіть за телефоном або email.' : 'Введіть телефон (мінімум 9 цифр) або email.' };
     }
-    const kids = childrenByContact(contact);
+    const kids = childrenByContact_(contact);
     if (!kids.length) {
       if (p.auto) return { needLogin: true };
       return { error: 'За цим контактом дітей не знайдено. Перевірте номер/email або зверніться до адміністратора.' };
     }
-    const st = getSettings();
+    const st = getSettings_();
     if (!st.monday) return { error: 'Активний тиждень ще не налаштовано. Спробуйте пізніше.' };
-    const rules = getRules();
-    const perms = cellPermissions(st, rules);
+    const rules = getRules_();
+    const perms = cellPermissions_(st, rules);
     const allLocked = perms.every(pp => !pp.c && !pp.x);
     let bannerText = '';
     if (st.closed) bannerText = '🔒 Тиждень закрито адміністратором. Зміни — через чат Харчування.';
     else if (st.deadline) {
       if (!st.pastDeadline) bannerText = '⏰ Первинне замовлення — до ' + st.deadlineText;
       else if (st.mode === MODE_FORBID) bannerText = '🔒 Прийом замовлень закрито (дедлайн ' + st.deadlineText + '). Зміни — через адміністратора.';
-      else if (st.mode === MODE_RULES) bannerText = 'Первинне замовлення закрито. Точкові зміни: ' + rulesSummaryText(rules) + '.';
+      else if (st.mode === MODE_RULES) bannerText = 'Первинне замовлення закрито. Точкові зміни: ' + rulesSummaryText_(rules) + '.';
     }
-    const token = ensureToken(contact);
-    const orders = ordersForWeek(st.weekLabel);
-    const bal = computeBalances(st.weekLabel);
+    const token = ensureToken_(contact);
+    const orders = ordersForWeek_(st.weekLabel);
+    const bal = computeBalances_(st.weekLabel);
     return {
       token, contact,
       appUrl: st.appUrl,
@@ -1331,8 +1509,8 @@ function api_init(p) {
         deadlineText: st.deadlineText, bannerText: bannerText, allLocked: allLocked,
       },
       perms: perms,
-      prices: getPrices(st.mondayYmd),
-      menu: getMenu(),
+      prices: getPrices_(st.mondayYmd),
+      menu: getMenu_(),
       meals: MEALS,
       days: DAYS,
       children: kids.map(k => {
@@ -1351,20 +1529,20 @@ function api_init(p) {
 function api_save(p) {
   try {
     p = p || {};
-    const st = getSettings();
+    const st = getSettings_();
     if (!st.monday) return { error: 'Тиждень не налаштовано.' };
     if (st.closed) return { error: 'Тиждень закрито адміністратором. Зміни — через чат Харчування.' };
     if (st.pastDeadline && st.mode === MODE_FORBID) {
       return { error: 'Прийом замовлень закрито (дедлайн ' + st.deadlineText + '). Зміни — лише через адміністратора.' };
     }
-    const contact = resolveContact(p);
+    const contact = resolveContact_(p);
     if (!contact) return { error: 'Сесію не розпізнано. Оновіть сторінку.' };
-    if (!childrenByContact(contact).some(k => k.name === p.child)) return { error: 'Ця дитина не прив’язана до вашого контакту.' };
+    if (!childrenByContact_(contact).some(k => k.name === p.child)) return { error: 'Ця дитина не прив’язана до вашого контакту.' };
     if (!Array.isArray(p.choices) || p.choices.length !== 15) return { error: 'Невірний формат замовлення.' };
     const choices = p.choices.map(c => CHOICES.indexOf(String(c)) !== -1 ? String(c) : NONE);
 
-    const existing = ordersForWeek(st.weekLabel)[p.child] || Array(15).fill(NONE);
-    const perms = cellPermissions(st, getRules());
+    const existing = ordersForWeek_(st.weekLabel)[p.child] || Array(15).fill(NONE);
+    const perms = cellPermissions_(st, getRules_());
     const problems = [];
     const cellName = i => DAY_SHORT[Math.floor(i / 3)] + ' ' + MEALS[i % 3];
     choices.forEach((nv, i) => {
@@ -1379,17 +1557,17 @@ function api_save(p) {
     const parts = [];
     choices.forEach((nv, i) => { if (nv !== existing[i]) parts.push(cellName(i) + ': ' + existing[i] + ' → ' + nv); });
 
-    const prices = getPrices(st.mondayYmd);
+    const prices = getPrices_(st.mondayYmd);
     const sum = choices.reduce((s, c, i) => s + (c === NONE ? 0 : (prices[MEALS[i % 3]] || 0)), 0);
 
     const lock = LockService.getScriptLock();
     lock.waitLock(10000);
     try {
-      upsertOrder(st.weekLabel, p.child, choices, sum, contact);
-      logChanges(st, p.child, contact, parts);
-      refreshBalance();
+      upsertOrder_(st.weekLabel, p.child, choices, sum, contact);
+      logChanges_(st, p.child, contact, parts);
+      refreshBalance_();
       // «Зведення» — живі формули, перебудова потрібна лише коли змінився активний тиждень
-      if (summaryStale(st)) refreshSummary();
+      if (summaryStale_(st)) refreshSummary_();
     } finally { lock.releaseLock(); }
     return { ok: true, sum };
   } catch (err) { return { error: 'Помилка збереження: ' + err.message }; }
@@ -1397,29 +1575,29 @@ function api_save(p) {
 
 // ---------------------------------------------------------------- API для адмін-панелі
 
-function adminOk(token) {
-  const st = getSettings();
+function adminOk_(token) {
+  const st = getSettings_();
   return !!(st.adminToken && token && String(token) === st.adminToken);
 }
 
 /** Порції на дату (yyyy-MM-dd): хто що отримує, для друку. */
 function api_admin_today(token, dateStr, classes) {
   try {
-    if (!adminOk(token)) return { error: 'Немає доступу.' };
-    const st = getSettings();
+    if (!adminOk_(token)) return { error: 'Немає доступу.' };
+    const st = getSettings_();
     let ymd;
     if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
       const s = dateStr.split('-'); ymd = { y: +s[0], mo: +s[1], d: +s[2] };
-    } else ymd = ymdOf(new Date());
-    const wd = ymdWeekday(ymd); // 1..5 = пн..пт
+    } else ymd = ymdOf_(new Date());
+    const wd = ymdWeekday_(ymd); // 1..5 = пн..пт
     if (wd === 0 || wd === 6) return { error: 'Вихідний день — замовлень немає.', dateStr: dateStr };
-    const mondayYmd = ymdAdd(ymd, -(wd - 1));
-    const label = weekLabelOf(mondayYmd);
+    const mondayYmd = ymdAdd_(ymd, -(wd - 1));
+    const label = weekLabelOf_(mondayYmd);
     const dayIdx = wd - 1;
-    const orders = ordersForWeek(label);
-    const menu = (label === st.weekLabel) ? getMenu() : {};
+    const orders = ordersForWeek_(label);
+    const menu = (label === st.weekLabel) ? getMenu_() : {};
     // фільтр за класами: порожній список = усі класи
-    const actives = roster().filter(k => k.active);
+    const actives = roster_().filter(k => k.active);
     const pick = Array.isArray(classes) ? classes.map(c => String(c)) : [];
     const inFilter = k => !pick.length || pick.indexOf(k.cls || '') !== -1;
     const clsOf = {};
@@ -1472,23 +1650,23 @@ function api_admin_today(token, dateStr, classes) {
 /** Виписка для адміністратора — по будь-якій дитині зі «Списку», включно з архівом. */
 function api_admin_statement(token, p) {
   try {
-    if (!adminOk(token)) return { error: 'Немає доступу.' };
+    if (!adminOk_(token)) return { error: 'Немає доступу.' };
     p = p || {};
     const name = String(p.name || '').trim();
-    if (!roster().some(k => k.name === name)) return { error: 'Оберіть дитину зі списку.' };
-    const rg = statementRange(p);
+    if (!roster_().some(k => k.name === name)) return { error: 'Оберіть дитину зі списку.' };
+    const rg = statementRange_(p);
     if (rg.error) return rg;
-    return buildStatement(name, rg.from, rg.to);
+    return buildStatement_(name, rg.from, rg.to);
   } catch (err) { return { error: 'Помилка: ' + err.message }; }
 }
 
 function api_admin_roster(token) {
   try {
-    if (!adminOk(token)) return { error: 'Немає доступу.' };
-    const bal = computeBalances('');
+    if (!adminOk_(token)) return { error: 'Немає доступу.' };
+    const bal = computeBalances_('');
     return {
       ok: true,
-      children: roster().map(k => ({
+      children: roster_().map(k => ({
         row: k.row, name: k.name, phone1: k.rawPhones[0], phone2: k.rawPhones[1],
         email1: k.rawEmails[0], email2: k.rawEmails[1], status: k.active ? 'активний' : 'архів', note: k.note, cls: k.cls,
         balance: bal[k.name] ? bal[k.name].paid - bal[k.name].ordered : 0,
@@ -1499,11 +1677,11 @@ function api_admin_roster(token) {
 
 function api_admin_saveChild(token, c) {
   try {
-    if (!adminOk(token)) return { error: 'Немає доступу.' };
+    if (!adminOk_(token)) return { error: 'Немає доступу.' };
     c = c || {};
     const name = String(c.name || '').trim();
     if (!name) return { error: 'ПІБ обов’язкове.' };
-    const sh = sheet(SHEETS.ROSTER, true);
+    const sh = sheet_(SHEETS.ROSTER, true);
     const row = [name, String(c.cls || '').trim(),
       String(c.phone1 || '').trim(), String(c.phone2 || '').trim(),
       /архів/i.test(String(c.status || '')) ? 'архів' : 'активний',
@@ -1515,12 +1693,12 @@ function api_admin_saveChild(token, c) {
       const orig = String(c.orig || '').trim();
       if (orig && was !== orig) return { error: 'Список змінився, поки картка була відкрита. Оновіть сторінку й повторіть.' };
       if (name !== was) {
-        if (roster().some(k => k.name === name)) return { error: 'Дитина з таким ПІБ уже є у списку.' };
-        renameEverywhere(was, name); // ПІБ — ключ: переносимо замовлення, оплати й журнал на нове ім'я
+        if (roster_().some(k => k.name === name)) return { error: 'Дитина з таким ПІБ уже є у списку.' };
+        renameEverywhere_(was, name); // ПІБ — ключ: переносимо замовлення, оплати й журнал на нове ім'я
       }
       sh.getRange(r, 1, 1, row.length).setValues([row]);
     } else {
-      if (roster().some(k => k.name === name)) return { error: 'Дитина з таким ПІБ уже є у списку.' };
+      if (roster_().some(k => k.name === name)) return { error: 'Дитина з таким ПІБ уже є у списку.' };
       sh.appendRow(row);
     }
     return api_admin_roster(token);
@@ -1528,11 +1706,11 @@ function api_admin_saveChild(token, c) {
 }
 
 /** Замінює ПІБ у «Замовленнях», «Оплатах» і «Журналі змін», щоб історія й баланс не загубилися. */
-function renameEverywhere(oldName, newName) {
+function renameEverywhere_(oldName, newName) {
   if (!oldName || oldName === newName) return 0;
   let n = 0;
   [[SHEETS.ORDERS, 2], [SHEETS.PAYMENTS, 2], [SHEETS.LOG, 3]].forEach(([nm, col]) => {
-    const sh = sheet(nm);
+    const sh = sheet_(nm);
     if (!sh || sh.getLastRow() < 2) return;
     const rng = sh.getRange(2, col, sh.getLastRow() - 1, 1);
     const vals = rng.getValues();
@@ -1540,34 +1718,34 @@ function renameEverywhere(oldName, newName) {
     vals.forEach(v => { if (String(v[0]).trim() === oldName) { v[0] = newName; changed = true; n++; } });
     if (changed) rng.setValues(vals);
   });
-  refreshBalance();
+  refreshBalance_();
   return n;
 }
 
 function api_admin_addPayment(token, p) {
   try {
-    if (!adminOk(token)) return { error: 'Немає доступу.' };
+    if (!adminOk_(token)) return { error: 'Немає доступу.' };
     p = p || {};
     const name = String(p.name || '').trim();
     const sum = Number(p.sum);
-    if (!roster().some(k => k.name === name)) return { error: 'Оберіть дитину зі списку.' };
+    if (!roster_().some(k => k.name === name)) return { error: 'Оберіть дитину зі списку.' };
     if (!sum || isNaN(sum)) return { error: 'Сума має бути числом (не 0).' };
     let date = new Date();
     if (p.date && /^\d{4}-\d{2}-\d{2}$/.test(p.date)) date = Utilities.parseDate(p.date + ' 12:00', TZ, 'yyyy-MM-dd HH:mm');
-    const sh = sheet(SHEETS.PAYMENTS, true);
+    const sh = sheet_(SHEETS.PAYMENTS, true);
     sh.appendRow([date, name, sum, String(p.comment || '').trim(), '']);
     const rowIdx = sh.getLastRow();
-    refreshBalance();
-    const sent = notifyPayment(name, sum, date);
+    refreshBalance_();
+    const sent = notifyPayment_(name, sum, date);
     if (sent) sh.getRange(rowIdx, 5).setValue('так');
-    const b = computeBalances('')[name] || { ordered: 0, paid: 0 };
+    const b = computeBalances_('')[name] || { ordered: 0, paid: 0 };
     return { ok: true, balance: b.paid - b.ordered, emailed: sent };
   } catch (err) { return { error: 'Помилка: ' + err.message }; }
 }
 
 // ---------------------------------------------------------------- email (другорядне)
 
-function sendMail(to, subject, body) {
+function sendMail_(to, subject, body) {
   if (!to || !to.length) return false;
   try {
     MailApp.sendEmail({ to: to.join(','), subject: subject, body: body, name: 'Шкільне харчування' });
@@ -1575,27 +1753,28 @@ function sendMail(to, subject, body) {
   } catch (e) { return false; }
 }
 
-function notifyPayment(name, sum, date) {
-  const to = familyEmails(name);
+function notifyPayment_(name, sum, date) {
+  const to = familyEmails_(name);
   if (!to.length) return false;
-  const b = computeBalances('')[name] || { ordered: 0, paid: 0 };
+  const b = computeBalances_('')[name] || { ordered: 0, paid: 0 };
   const balance = b.paid - b.ordered;
-  return sendMail(to, 'Оплату зараховано: ' + name,
+  return sendMail_(to, 'Оплату зараховано: ' + name,
     'Доброго дня!\n\nЗараховано оплату ' + sum + ' грн за харчування (' + name + '), дата ' +
     Utilities.formatDate(date, TZ, 'dd.MM.yyyy') + '.\n' +
     'Поточний баланс: ' + (balance >= 0 ? '+' : '') + balance + ' грн.\n\nДякуємо!');
 }
 
-/** Надсилає всім сім’ям з email їхній баланс (пункт меню). */
+/** Надсилає всім сім’ям з email їхній баланс (меню «Листи батькам → Поточний баланс»). */
 function sendBalanceEmails() {
-  const st = getSettings();
-  const bal = computeBalances('');
+  menuOnly_();
+  const st = getSettings_();
+  const bal = computeBalances_('');
   let n = 0;
-  roster().filter(k => k.active && k.emails.length).forEach(k => {
+  roster_().filter(k => k.active && k.emails.length).forEach(k => {
     const b = bal[k.name] || { ordered: 0, paid: 0 };
     const balance = b.paid - b.ordered;
-    const link = linkFor(st, ensureToken(k.emails[0]));
-    if (sendMail(k.emails, 'Баланс харчування: ' + k.name,
+    const link = linkFor_(st, ensureToken_(k.emails[0]));
+    if (sendMail_(k.emails, 'Баланс харчування: ' + k.name,
       'Доброго дня!\n\n' + k.name + ':\n  замовлено всього: ' + b.ordered + ' грн\n  оплачено: ' + b.paid +
       ' грн\n  баланс: ' + (balance >= 0 ? '+' : '') + balance + ' грн' +
       (balance < 0 ? '\n\nПросимо поповнити баланс.' : '') +
@@ -1606,7 +1785,7 @@ function sendBalanceEmails() {
 
 /** Щогодинний тригер: за N годин до дедлайну нагадує тим, хто ще не замовив. */
 function reminderTick() {
-  const st = getSettings();
+  const st = getSettings_();
   if (!st.deadline || st.closed) return;
   const now = new Date();
   const from = new Date(st.deadline.getTime() - st.remindHours * 3600e3);
@@ -1614,14 +1793,14 @@ function reminderTick() {
   const props = PropertiesService.getScriptProperties();
   const key = 'reminded_' + st.weekLabel;
   if (props.getProperty(key)) return;
-  const orders = ordersForWeek(st.weekLabel);
+  const orders = ordersForWeek_(st.weekLabel);
   const byEmail = {};
-  roster().filter(k => k.active && !orders[k.name]).forEach(k => {
+  roster_().filter(k => k.active && !orders[k.name]).forEach(k => {
     k.emails.forEach(e => { (byEmail[e] = byEmail[e] || []).push(k.name); });
   });
   Object.keys(byEmail).forEach(e => {
-    const link = linkFor(st, ensureToken(e));
-    sendMail([e], 'Нагадування: замовлення харчування на тиждень ' + st.weekLabel,
+    const link = linkFor_(st, ensureToken_(e));
+    sendMail_([e], 'Нагадування: замовлення харчування на тиждень ' + st.weekLabel,
       'Доброго дня!\n\nЩе не зроблено замовлення на тиждень ' + st.weekLabel + ' для: ' + byEmail[e].join(', ') +
       '.\nПрийом первинних замовлень — до ' + st.deadlineText + '.' +
       (link ? '\n\nЗамовити: ' + link : '') + '\n\nДякуємо!');
@@ -1639,34 +1818,59 @@ function onPaymentEdit(e) {
     const vals = sh.getRange(r, 1, 1, 5).getValues()[0];
     const date = vals[0], name = String(vals[1] || '').trim(), sum = Number(vals[2]);
     if (!(date instanceof Date) || !name || !sum || String(vals[4] || '').trim()) return;
-    if (notifyPayment(name, sum, date)) sh.getRange(r, 5).setValue('так');
+    if (notifyPayment_(name, sum, date)) sh.getRange(r, 5).setValue('так');
   } catch (err) { /* тихо: тригер не має падати */ }
 }
 
-function installTriggers() {
+const AUTOMATION = ['reminderTick', 'onPaymentEdit', 'cateringTick'];
+
+/** Ставить відсутні тригери автоматики (для поточного акаунта). */
+function enableAutomation_() {
   const have = ScriptApp.getProjectTriggers().map(t => t.getHandlerFunction());
   if (have.indexOf('reminderTick') === -1) ScriptApp.newTrigger('reminderTick').timeBased().everyHours(1).create();
-  if (have.indexOf('onPaymentEdit') === -1) ScriptApp.newTrigger('onPaymentEdit').forSpreadsheet(ss()).onEdit().create();
+  if (have.indexOf('onPaymentEdit') === -1) ScriptApp.newTrigger('onPaymentEdit').forSpreadsheet(ss_()).onEdit().create();
   if (have.indexOf('cateringTick') === -1) ScriptApp.newTrigger('cateringTick').timeBased().everyMinutes(15).create();
+}
+
+/** Прибирає тригери автоматики поточного акаунта; повертає кількість. */
+function disableAutomation_() {
+  let n = 0;
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (AUTOMATION.indexOf(t.getHandlerFunction()) !== -1) { ScriptApp.deleteTrigger(t); n++; }
+  });
+  return n;
+}
+
+function installTriggers() {
+  menuOnly_();
+  enableAutomation_();
   SpreadsheetApp.getUi().alert(
-    'Увімкнено:\n• щогодинна перевірка і нагадування на email за ' + getSettings().remindHours +
-    ' год до дедлайну тим, хто не замовив;\n• лист сім’ї після внесення оплати в «Оплати»;\n' +
-    '• автопередача кількостей кейтерингу кожні 15 хв — працює лише коли «Кейтеринг: автопередача» = так.\n\n' +
-    'Email беруться з колонок «Email 1/2» листа «Список».');
+    'Автоматику ввімкнено:\n• нагадування на email за ' + getSettings_().remindHours +
+    ' год до дедлайну тим, хто не замовив (перевірка щогодини);\n• лист родині після оплати, вписаної в лист «Оплати»;\n' +
+    '• автопередача кількостей кейтерингу кожні 15 хв — діє лише коли «Кейтеринг: автопередача» = так.\n\n' +
+    'Листи йдуть з вашої пошти (' + ownerEmail_() + '). Поточний стан — меню «ℹ️ Стан системи».');
+}
+
+function removeTriggers() {
+  menuOnly_();
+  const n = disableAutomation_();
+  SpreadsheetApp.getUi().alert(n ? 'Автоматику вимкнено (прибрано ' + n + ' тригери). Нагадування, листи про оплати з таблиці й автопередача кейтерингу не працюватимуть, доки ви не ввімкнете її знову.'
+    : 'Автоматика й так була вимкнена для вашого акаунта.');
 }
 
 // ---------------------------------------------------------------- зведення і баланс
 
 /** «Зведення» зібране під інший тиждень (адмін змінив понеділок) або ще не створене. */
-function summaryStale(st) {
-  const sh = sheet(SHEETS.SUMMARY);
+function summaryStale_(st) {
+  const sh = sheet_(SHEETS.SUMMARY);
   if (!sh || sh.getLastRow() === 0) return true;
   return String(sh.getRange(1, 1).getDisplayValue()).trim() !== String(st.dayLabels[0] || '').trim();
 }
 
 function refreshAll() {
-  refreshSummary();
-  refreshBalance();
+  menuOnly_();
+  refreshSummary_();
+  refreshBalance_();
 }
 
 /**
@@ -1676,7 +1880,7 @@ function refreshAll() {
  * Числа не записуються скриптом, а рахуються формулами COUNTIFS по листу «Замовлення»,
  * тому оновлюються самі, щойно батьки змінюють замовлення.
  */
-function colLetter(n) {
+function colLetter_(n) {
   let out = '';
   while (n > 0) { const r = (n - 1) % 26; out = String.fromCharCode(65 + r) + out; n = (n - r - 1) / 26; }
   return out;
@@ -1687,7 +1891,7 @@ function colLetter(n) {
  * counts = null → формули COUNTIFS (живий лист у нашій таблиці);
  * counts = [15 × {'№1': n, '№2': n}] → готові числа (для передачі в чужу таблицю).
  */
-function summaryGrid(st, counts) {
+function summaryGrid_(st, counts) {
   const BLOCK_W = 2, GAP = 1, STRIDE = BLOCK_W + GAP; // колонки на день + вузька колонка-роздільник
   const ORD = "'" + SHEETS.ORDERS + "'";              // лист-джерело для формул
   const grid = [];
@@ -1701,7 +1905,7 @@ function summaryGrid(st, counts) {
     MEALS.forEach((meal, m) => {
       put(r, c0, meal); r++;
       // колонка вибору в «Замовленнях»: C = Пн Сніданок, далі по три на день
-      const col = colLetter(3 + d * 3 + m);
+      const col = colLetter_(3 + d * 3 + m);
       ['№1', '№2'].forEach(v => {
         put(r, c0, meal + ' ' + v);
         put(r, c0 + 1, counts ? (counts[d * 3 + m][v] || 0)
@@ -1715,7 +1919,7 @@ function summaryGrid(st, counts) {
   return grid.map(r => { const a = (r || []).slice(0, cols); while (a.length < cols) a.push(''); return a; });
 }
 
-function formatSummary(sh, cols) {
+function formatSummary_(sh, cols) {
   const GREEN = '#93c47d', PEACH = '#fce5cd', STRIDE = 3;
   for (let d = 0; d < 5; d++) {
     const c0 = d * STRIDE + 1; // 1-indexed колонка «День»
@@ -1730,28 +1934,28 @@ function formatSummary(sh, cols) {
 }
 
 /** Кількість порцій тижня по кожному з 15 прийомів — так само, як рахують формули «Зведення». */
-function countsForWeek(weekLabel) {
+function countsForWeek_(weekLabel) {
   const counts = [];
   for (let i = 0; i < 15; i++) counts.push({ '№1': 0, '№2': 0 });
-  const orders = ordersForWeek(weekLabel);
+  const orders = ordersForWeek_(weekLabel);
   Object.keys(orders).forEach(n => orders[n].forEach((c, i) => { if (counts[i][c] !== undefined) counts[i][c]++; }));
   return counts;
 }
 
-function refreshSummary() {
-  const st = getSettings();
-  const sh = sheet(SHEETS.SUMMARY, true);
+function refreshSummary_() {
+  const st = getSettings_();
+  const sh = sheet_(SHEETS.SUMMARY, true);
   sh.clear();
   if (!st.monday) { sh.getRange(1, 1).setValue('Тиждень не налаштовано.'); return; }
-  const g = summaryGrid(st, null);
+  const g = summaryGrid_(st, null);
   sh.getRange(1, 1, g.length, g[0].length).setValues(g);
-  formatSummary(sh, g[0].length);
+  formatSummary_(sh, g[0].length);
 }
 
-function refreshBalance() {
-  const sh = sheet(SHEETS.BALANCE, true);
+function refreshBalance_() {
+  const sh = sheet_(SHEETS.BALANCE, true);
   sh.clearContents();
-  const bal = computeBalances('');
+  const bal = computeBalances_('');
   const names = Object.keys(bal).sort();
   const out = [['ПІБ', 'Замовлено, грн', 'Оплачено, грн', 'Баланс, грн']];
   names.forEach(n => out.push([n, bal[n].ordered, bal[n].paid, bal[n].paid - bal[n].ordered]));
@@ -1766,47 +1970,45 @@ function refreshBalance() {
 // (ті самі, що в нашому «Зведенні»). Діти й вибір лишаються тільки в нас.
 // Перед записом лист розбирається парсером: тиждень, 30 позицій, дні, числові клітинки.
 
-function fillWeek(tpl, st) { return String(tpl || '').replace(/\{тиждень\}/g, st.weekLabel).trim(); }
+function fillWeek_(tpl, st) { return String(tpl || '').replace(/\{тиждень\}/g, st.weekLabel).trim(); }
 
-function openTarget(urlOrId) {
+function openTarget_(urlOrId) {
   const v = String(urlOrId || '').trim();
   return v.indexOf('/d/') !== -1 ? SpreadsheetApp.openByUrl(v) : SpreadsheetApp.openById(v);
 }
 
-function gidFromUrl(u) { const m = /[#&?]gid=(\d+)/.exec(String(u || '')); return m ? +m[1] : null; }
+function gidFromUrl_(u) { const m = /[#&?]gid=(\d+)/.exec(String(u || '')); return m ? +m[1] : null; }
 
-/** Пояснення, чому не відкрилась таблиця кейтерингу, — з підказкою для файлу Excel (.xlsx) у Drive. */
-function cateringOpenError(e) {
-  return 'Не вдалося відкрити таблицю кейтерингу: ' + e.message + '. Перевірте, що: 1) посилання правильне; ' +
-    '2) акаунт ' + ownerEmail() + ' має до неї доступ «Редактор»; 3) це таблиця Google, а не файл Excel — ' +
-    'якщо біля назви файлу є позначка .XLSX, відкрийте його і виберіть «Файл → Зберегти як таблицю Google», ' +
-    'а в «Налаштування» вставте посилання на створену таблицю.';
+/** Пояснення, чому не відкрилась таблиця кейтерингу. */
+function cateringOpenError_(e) {
+  return 'Не вдалося відкрити таблицю кейтерингу: ' + e.message + '. Перевірте, що посилання правильне і що акаунт ' +
+    ownerEmail_() + ' має до неї доступ (для меню — перегляд, для передачі кількостей — «Редактор»).';
 }
 
-function ownerEmail() { try { return Session.getEffectiveUser().getEmail(); } catch (e) { return ''; } }
+function ownerEmail_() { try { return Session.getEffectiveUser().getEmail(); } catch (e) { return ''; } }
 
 /**
  * Знаходить лист кейтерингу на активний тиждень і розбирає, у які клітинки писати.
  * Лист: спершу за назвою з «Кейтеринг: лист» ({тиждень} → 28.09-02.10), інакше — за gid з посилання.
  * Повертає { errors[], warnings[], book, sheet, slots[30]: {d, m, v, r, c, cur, formula} }.
  */
-function cateringPlan(st) {
+function cateringPlan_(st) {
   const res = { errors: [], warnings: [], slots: [] };
   if (!st.monday) { res.errors.push('Не вказано «Понеділок тижня (дата)» в «Налаштуваннях».'); return res; }
-  if (!st.cateringUrl) { res.errors.push('Не вказано «Кейтеринг: таблиця (посилання)» в «Налаштуваннях» (якщо рядка немає — запустіть пункт меню 1).'); return res; }
+  if (!st.cateringUrl) { res.errors.push('Не вказано «Кейтеринг: таблиця (посилання)» в «Налаштуваннях» (якщо рядка немає — запустіть «⚙️ Обслуговування → Оновити службові листи»).'); return res; }
   let book;
-  try { book = openTarget(st.cateringUrl); }
+  try { book = openTarget_(st.cateringUrl); }
   catch (e) {
-    res.errors.push(cateringOpenError(e));
+    res.errors.push(cateringOpenError_(e));
     return res;
   }
-  if (book.getId() === ss().getId()) { res.errors.push('Посилання веде на цю саму таблицю, а не на таблицю кейтерингу.'); return res; }
+  if (book.getId() === ss_().getId()) { res.errors.push('Посилання веде на цю саму таблицю, а не на таблицю кейтерингу.'); return res; }
   res.book = book;
 
-  const wantName = fillWeek(st.cateringTab, st);
+  const wantName = fillWeek_(st.cateringTab, st);
   let sh = wantName ? book.getSheetByName(wantName) : null;
   if (!sh) {
-    const gid = gidFromUrl(st.cateringUrl);
+    const gid = gidFromUrl_(st.cateringUrl);
     if (gid !== null) sh = book.getSheets().filter(x => x.getSheetId() === gid)[0] || null;
   }
   if (!sh) {
@@ -1842,7 +2044,7 @@ function cateringPlan(st) {
   if (found.length < 5) {
     res.errors.push('Знайдено не всі дні: ' + (found.map(d => DAYS[d]).join(', ') || 'жодного') + '. Очікую Понеділок…П’ятниця заголовками блоків.');
   }
-  const cell = (r, c) => colLetter(c + 1) + (r + 1);
+  const cell = (r, c) => colLetter_(c + 1) + (r + 1);
   const seen = {};
   vals.forEach((row, r) => row.forEach((v, c) => {
     const m = /^(Сніданок|Обід|Підвечірок)\s*№?\s*([12])$/i.exec(normAp(v));
@@ -1869,22 +2071,22 @@ function cateringPlan(st) {
 }
 
 /** Порівнює план з нашими кількостями: що зміниться. */
-function cateringDiff(plan, st) {
-  const counts = countsForWeek(st.weekLabel);
+function cateringDiff_(plan, st) {
+  const counts = countsForWeek_(st.weekLabel);
   plan.slots.forEach(s => { s.want = counts[s.d * 3 + s.m][s.v] || 0; });
   return plan.slots.filter(s => s.formula || s.cur === '' || Number(s.cur) !== s.want);
 }
 
 /** Записує кількості й перечитує, щоб переконатися, що в них тепер саме наші числа. */
-function cateringWrite(plan, diff) {
+function cateringWrite_(plan, diff) {
   diff.forEach(s => plan.sheet.getRange(s.r, s.c).setValue(s.want));
   SpreadsheetApp.flush();
   const bad = plan.slots.filter(s => Number(plan.sheet.getRange(s.r, s.c).getValue()) !== s.want);
   return bad.map(s => DAY_SHORT[s.d] + ' ' + MEALS[s.m] + ' ' + s.v + ': у них ' + plan.sheet.getRange(s.r, s.c).getValue() + ', у нас ' + s.want);
 }
 
-function logCatering(st, mode, result, n, details) {
-  const sh = sheet(SHEETS.CAT_LOG, true);
+function logCatering_(st, mode, result, n, details) {
+  const sh = sheet_(SHEETS.CAT_LOG, true);
   if (sh.getLastRow() === 0) sh.getRange(1, 1, 1, 6).setValues([['Час', 'Тиждень', 'Запуск', 'Результат', 'Змінено клітинок', 'Деталі']]);
   sh.appendRow([new Date(), st.weekLabel, mode, result, n, details]);
 }
@@ -1893,20 +2095,21 @@ const slotName = s => DAY_SHORT[s.d] + ' ' + MEALS[s.m] + ' ' + s.v;
 
 /** Пункт меню: перевірка → звіт → підтвердження → запис → звірка. */
 function cateringMenu() {
+  menuOnly_();
   const ui = SpreadsheetApp.getUi();
-  const st = getSettings();
-  const plan = cateringPlan(st);
+  const st = getSettings_();
+  const plan = cateringPlan_(st);
   if (plan.errors.length) {
-    logCatering(st, 'вручну', '❌ перевірку не пройдено', 0, plan.errors.join(' | '));
+    logCatering_(st, 'вручну', '❌ перевірку не пройдено', 0, plan.errors.join(' | '));
     ui.alert('Передачу зупинено', 'Лист кейтерингу не пройшов перевірку, нічого не записано:\n\n• ' + plan.errors.join('\n• '), ui.ButtonSet.OK);
     return;
   }
-  const diff = cateringDiff(plan, st);
+  const diff = cateringDiff_(plan, st);
   const head = 'Файл: ' + plan.book.getName() + '\nЛист: «' + plan.sheet.getName() + '»\nТиждень: ' + st.weekLabel +
     '\n\nПеревірка: ✅ знайдено всі 30 позицій (5 днів × 3 прийоми × 2 варіанти)' +
     (plan.warnings.length ? '\n⚠ ' + plan.warnings.join('\n⚠ ') : '');
   if (!diff.length) {
-    logCatering(st, 'вручну', '✅ без змін', 0, 'кількості в листі кейтерингу вже актуальні');
+    logCatering_(st, 'вручну', '✅ без змін', 0, 'кількості в листі кейтерингу вже актуальні');
     ui.alert('Кейтеринг', head + '\n\nУ їхньому листі вже наші кількості — змінювати нічого.', ui.ButtonSet.OK);
     return;
   }
@@ -1918,57 +2121,57 @@ function cateringMenu() {
     '\n\nІнші клітинки й листи їхньої таблиці не змінюються. Записати?', ui.ButtonSet.OK_CANCEL);
   if (ok !== ui.Button.OK) return;
 
-  const bad = cateringWrite(plan, diff);
+  const bad = cateringWrite_(plan, diff);
   if (bad.length) {
-    logCatering(st, 'вручну', '⚠ записано з розбіжностями', diff.length, bad.join(' | '));
+    logCatering_(st, 'вручну', '⚠ записано з розбіжностями', diff.length, bad.join(' | '));
     ui.alert('Увага', 'Після запису в їхньому листі не збігаються:\n• ' + bad.join('\n• '), ui.ButtonSet.OK);
     return;
   }
-  PropertiesService.getScriptProperties().setProperty('cat_last', cateringSignature(st));
-  logCatering(st, 'вручну', '✅ передано', diff.length, lines.slice(0, 40).join('; ') + (nForm ? (lines.length ? '; ' : '') + nForm + ' формул замінено числами' : ''));
-  const pending = markSent(st.weekLabel, false);
+  PropertiesService.getScriptProperties().setProperty('cat_last', cateringSignature_(st));
+  logCatering_(st, 'вручну', '✅ передано', diff.length, lines.slice(0, 40).join('; ') + (nForm ? (lines.length ? '; ' : '') + nForm + ' формул замінено числами' : ''));
+  const pending = markSent_(st.weekLabel, false);
   const done = 'Передано й перевірено: у листі «' + plan.sheet.getName() + '» тепер наші кількості.\n' + plan.book.getUrl();
   if (pending) {
     const r = ui.alert('Готово', done + '\n\nУ «Журналі змін» ' + pending + ' непозначених змін за цей тиждень — вони вже враховані. Позначити їх як передані?', ui.ButtonSet.YES_NO);
-    if (r === ui.Button.YES) markSent(st.weekLabel, true);
+    if (r === ui.Button.YES) markSent_(st.weekLabel, true);
   } else ui.alert('Готово', done, ui.ButtonSet.OK);
 }
 
-function cateringSignature(st) { return st.weekLabel + '|' + JSON.stringify(countsForWeek(st.weekLabel)); }
+function cateringSignature_(st) { return st.weekLabel + '|' + JSON.stringify(countsForWeek_(st.weekLabel)); }
 
 /**
- * Тригер кожні 15 хв (ставить «Увімкнути нагадування…»). Працює лише з «Кейтеринг: автопередача» = так.
+ * Тригер кожні 15 хв (ставить «Автоматика: увімкнути»). Працює лише з «Кейтеринг: автопередача» = так.
  * Пише тільки якщо кількості змінилися з останньої успішної передачі і перевірка пройшла без помилок.
  * Автоматично не пише, якщо тиждень неможливо перевірити за назвою. Про проблему — один лист власнику.
  */
 function cateringTick() {
-  const st = getSettings();
+  const st = getSettings_();
   if (!st.cateringAuto || !st.monday || !st.cateringUrl) return;
   const props = PropertiesService.getScriptProperties();
-  const sig = cateringSignature(st);
+  const sig = cateringSignature_(st);
   if (props.getProperty('cat_last') === sig) return;
-  const plan = cateringPlan(st);
+  const plan = cateringPlan_(st);
   const errors = plan.errors.concat(plan.warnings.length ? ['автопередача не пише без перевірки тижня: ' + plan.warnings.join('; ')] : []);
-  if (errors.length) { cateringAlert(st, errors.join('\n• ')); return; }
-  const diff = cateringDiff(plan, st);
-  const bad = diff.length ? cateringWrite(plan, diff) : [];
-  if (bad.length) { cateringAlert(st, 'після запису не збігаються: ' + bad.join('; ')); return; }
+  if (errors.length) { cateringAlert_(st, errors.join('\n• ')); return; }
+  const diff = cateringDiff_(plan, st);
+  const bad = diff.length ? cateringWrite_(plan, diff) : [];
+  if (bad.length) { cateringAlert_(st, 'після запису не збігаються: ' + bad.join('; ')); return; }
   props.setProperty('cat_last', sig);
   props.deleteProperty('cat_alert');
-  if (diff.length) logCatering(st, 'авто', '✅ передано', diff.length, diff.map(s => slotName(s) + ': ' + (s.formula ? 'формула' : (s.cur === '' ? 'порожньо' : s.cur)) + ' → ' + s.want).join('; '));
+  if (diff.length) logCatering_(st, 'авто', '✅ передано', diff.length, diff.map(s => slotName(s) + ': ' + (s.formula ? 'формула' : (s.cur === '' ? 'порожньо' : s.cur)) + ' → ' + s.want).join('; '));
 }
 
 /** Автопередача не вдалася: запис у журнал і лист власнику — один раз на кожну нову проблему. */
-function cateringAlert(st, msg) {
+function cateringAlert_(st, msg) {
   const props = PropertiesService.getScriptProperties();
   const key = st.weekLabel + '|' + msg;
   if (props.getProperty('cat_alert') === key) return;
   props.setProperty('cat_alert', key);
-  logCatering(st, 'авто', '❌ не передано', 0, msg);
-  const to = ownerEmail();
-  if (to) sendMail([to], 'Кейтеринг: кількості не передано (' + st.weekLabel + ')',
+  logCatering_(st, 'авто', '❌ не передано', 0, msg);
+  const to = ownerEmail_();
+  if (to) sendMail_([to], 'Кейтеринг: кількості не передано (' + st.weekLabel + ')',
     'Автопередача кількостей порцій у таблицю кейтерингу зупинена, нічого не записано:\n\n• ' + msg +
-    '\n\nВиправте причину або запустіть меню «Кейтеринг: перевірити й передати кількість порцій» вручну.' +
+    '\n\nВиправте причину або запустіть меню «🍽 Кейтеринг: передати кількість порцій» вручну.' +
     '\nЖурнал — лист «' + SHEETS.CAT_LOG + '».');
 }
 
@@ -2047,9 +2250,10 @@ const SCHOOL_IMPORT = [
 ];
 
 function seedRosterDemo() {
-  const sh = sheet(SHEETS.ROSTER, true);
+  menuOnly_();
+  const sh = sheet_(SHEETS.ROSTER, true);
   const have = {};
-  roster().forEach(k => { have[k.name.trim().toLowerCase()] = true; });
+  roster_().forEach(k => { have[k.name.trim().toLowerCase()] = true; });
   const toAdd = SCHOOL_IMPORT.filter(r => !have[r[0].trim().toLowerCase()]);
   // ПІБ | Клас | Телефон 1 | Телефон 2 | Статус | Email 1 | Email 2 | Примітка
   toAdd.forEach(r => sh.appendRow([r[0], '', '', '', 'активний', '', '', r[1]]));
@@ -2062,11 +2266,12 @@ function seedRosterDemo() {
  * ручні тестові) не чіпає. Безпечно перезапускати. Видаліть після демо.
  */
 function seedDemoOrders() {
-  const st = getSettings();
+  menuOnly_();
+  const st = getSettings_();
   if (!st.monday) { SpreadsheetApp.getUi().alert('Спочатку вкажіть понеділок тижня в «Налаштуваннях».'); return; }
-  const existing = ordersForWeek(st.weekLabel);
-  const prices = getPrices(st.mondayYmd);
-  const kids = roster().filter(k => k.active && !existing[k.name]);
+  const existing = ordersForWeek_(st.weekLabel);
+  const prices = getPrices_(st.mondayYmd);
+  const kids = roster_().filter(k => k.active && !existing[k.name]);
   // один пакетний запис замість appendRow на кожну дитину — інакше на ~50+ дітях
   // послідовне сканування листа в upsertOrder перевищує 6-хвилинний ліміт виконання
   const rows = [];
@@ -2082,7 +2287,7 @@ function seedDemoOrders() {
     rows.push([st.weekLabel, k.name].concat(choices).concat([sum, new Date(), contact]));
   });
   if (rows.length) {
-    const sh = sheet(SHEETS.ORDERS, true);
+    const sh = sheet_(SHEETS.ORDERS, true);
     sh.getRange(sh.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
   }
   refreshAll();
@@ -2092,7 +2297,7 @@ function seedDemoOrders() {
 function doGet(e) {
   const params = (e && e.parameter) || {};
   const admin = String(params.admin || '').replace(/[^A-Za-z0-9]/g, '');
-  if (admin && adminOk(admin)) {
+  if (admin && adminOk_(admin)) {
     const a = HtmlService.createTemplateFromFile('Admin');
     a.admin = admin;
     return a.evaluate().setTitle('Адмін · Харчування')
