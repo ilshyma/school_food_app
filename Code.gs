@@ -47,6 +47,11 @@ const DEFAULT_RULES = {
 const ROSTER_HEADERS = ['ПІБ', 'Клас', 'Телефон 1', 'Телефон 2', 'Статус', 'Email 1', 'Email 2', 'Примітка'];
 const PAYMENT_HEADERS = ['Дата', 'ПІБ', 'Сума, грн', 'Коментар', 'Повідомлено'];
 
+// базові ціни — як у шаблоні кейтерингу («Всього» у їхньому листі «Замовлення»)
+const DEFAULT_PRICES = { 'Сніданок': 100, 'Обід': 230, 'Підвечірок': 100 };
+// колишні стартові значення-заглушки: якщо «Ціни» досі такі, пункт 1 замінює їх на DEFAULT_PRICES
+const PLACEHOLDER_PRICES = { 'Сніданок': 90, 'Обід': 200, 'Підвечірок': 90 };
+
 // лист переїзду: адмін вставляє сюди дані зі старої системи, далі пункт меню 4
 const IMPORT_HEADERS = ['ПІБ', 'Клас', 'Телефон 1', 'Телефон 2', 'Email 1', 'Email 2',
   'Баланс на старті, грн', 'Примітка', 'Статус', 'Результат'];
@@ -90,6 +95,27 @@ function orderHeaders() {
 }
 
 function newToken(len) { return Utilities.getUuid().replace(/-/g, '').slice(0, len || 10); }
+
+/**
+ * Базові ціни в «Ціни»: порожній лист → DEFAULT_PRICES; рівно три базові рядки без дат зі старими
+ * заглушками 90/200/90 → DEFAULT_PRICES. Будь-які інші ціни (власні суми, рядки з датами) не чіпаються.
+ * Повертає текст для підсумкового вікна або ''.
+ */
+function seedPrices(prices) {
+  if (prices.getLastRow() === 0) {
+    prices.getRange(1, 1, 4, 3).setValues([['Прийом', 'Ціна, грн', 'Діє з (дата)']]
+      .concat(MEALS.map(m => [m, DEFAULT_PRICES[m], ''])));
+    prices.setFrozenRows(1);
+    return '';
+  }
+  if (prices.getLastRow() !== 4) return '';
+  const body = prices.getRange(2, 1, 3, 3).getValues();
+  const isPlaceholder = MEALS.every(m => body.some(r =>
+    String(r[0]).trim() === m && Number(r[1]) === PLACEHOLDER_PRICES[m] && String(r[2] || '').trim() === ''));
+  if (!isPlaceholder) return '';
+  prices.getRange(2, 1, 3, 3).setValues(MEALS.map(m => [m, DEFAULT_PRICES[m], '']));
+  return '\n\nЦіни оновлено до цін кейтерингу: ' + MEALS.map(m => m.toLowerCase() + ' ' + DEFAULT_PRICES[m]).join(', ') + ' грн.';
+}
 
 function setupSheets() {
   ss().setSpreadsheetTimeZone(TZ);
@@ -240,12 +266,7 @@ function setupSheets() {
   // ціни версіоновані: рядок діє з дати в колонці C (порожньо = від початку);
   // для тижня береться останній рядок з датою не пізніше його понеділка
   const prices = sheet(SHEETS.PRICES, true);
-  if (prices.getLastRow() === 0) {
-    prices.getRange(1, 1, 4, 3).setValues([
-      ['Прийом', 'Ціна, грн', 'Діє з (дата)'], ['Сніданок', 90, ''], ['Обід', 200, ''], ['Підвечірок', 90, ''],
-    ]);
-    prices.setFrozenRows(1);
-  }
+  const pricesNote = seedPrices(prices);
   if (!String(prices.getRange(1, 3).getValue() || '').trim()) prices.getRange(1, 3).setValue('Діє з (дата)');
   prices.getRange('A2:A50').setDataValidation(listRule(MEALS, true, 'Сніданок / Обід / Підвечірок'));
   prices.getRange('B2:B50').setNumberFormat('0').setDataValidation(
@@ -337,7 +358,7 @@ function setupSheets() {
   imp.setColumnWidth(10, 300);
 
   SpreadsheetApp.getUi().alert(
-    'Службові листи готові.\nЗаповніть «Список» (телефони/email, статус) — або, якщо переїжджаєте зі старої ' +
+    'Службові листи готові.' + pricesNote + '\nЗаповніть «Список» (телефони/email, статус) — або, якщо переїжджаєте зі старої ' +
     'системи, вставте дані в лист «Імпорт» і запустіть пункт меню 4.\n' +
     'Перевірте «Ціни» і «Правила змін», у «Налаштуваннях» вкажіть понеділок тижня — ' +
     'дедлайн першого замовлення порахується сам.');
