@@ -81,6 +81,18 @@ nav_order: 10
 Відповідь: `{opening, paid, charged, closing, rows:[{kind:'day'|'pay', date, label, amount, balance, items, changes, fix, future, comment}]}`.
 Рендер — у `statementHtml()` обох HTML (копія, бо файли незалежні).
 
+## Меню й новий тиждень
+
+- `parseMenuValues(vals)` — розбір «Склад …» у рядки «МенюДані» + `missing` (яких з 30 позицій немає).
+- `loadMenu(st, label, forceManual)` — джерело: лист `st.cateringMenuTab` (`{тиждень}` → label) з таблиці кейтерингу
+  з перевіркою тижня за назвою листа/файлу, інакше лист «Меню». `canFallback` — можна запропонувати ручний режим.
+- `applyMenu(m)` — копія їхнього листа в «Меню» + `writeMenuData`.
+- `openNewWeek()` — `ui.prompt` з пропозицією понеділка (`активний + 7` або найближчий), `parseDmy`,
+  перевірка понеділка, меню, підсумок, запис дати в «Налаштування», `refreshSummary`, `sendNewWeekEmails`.
+- `sendNewWeekEmails(st)` — один лист на адресу (`familiesWithEmail`), прапорець `announced_<тиждень>`.
+- «Налаштування» будує `setupSettings()` за `SETTINGS_LAYOUT` (блоки, пояснення); рядки-заголовки мають префікс `■`,
+  `getSettings()` їх просто ігнорує.
+
 ## Передача кейтерингу
 
 Ідея: у кейтеринг іде лише кількість порцій; діти лишаються в нас.
