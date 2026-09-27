@@ -59,6 +59,7 @@ const SETTINGS_LAYOUT = [
   ] },
   { title: 'ЛИСТИ БАТЬКАМ', hint: 'автоматичні email; працюють, коли ввімкнено «⚙️ Обслуговування → Автоматика: увімкнути»', items: [
     ['Нагадування: за годин до дедлайну', 'За скільки годин до дедлайну нагадати родинам, які ще не замовили (1–48).'],
+    ['Лист-підтвердження замовлення', 'так — після збереження батькам приходить лист із замовленням дитини: один, приблизно через 15 хв після останнього збереження, з актуальною версією (так не витрачається ліміт пошти на кожне збереження). ні — не надсилати.'],
   ] },
   { title: 'КЕЙТЕРИНГ', hint: 'звідки беремо меню і куди передаємо кількість порцій', items: [
     ['Кейтеринг: таблиця (посилання)', 'Посилання на Google-таблицю кейтерингу (можна прямо з адресного рядка, з #gid). Порожньо — меню вставляєте вручну в лист «Меню», кількості передаєте самі.'],
@@ -171,6 +172,7 @@ function setupSettings_(dateRule, listRule, timeOptions) {
     'Після дедлайну': MODE_RULES,
     'Тиждень закрито': 'ні',
     'Нагадування: за годин до дедлайну': 2,
+    'Лист-підтвердження замовлення': 'так',
     'Адмін-токен': newToken_(16),
     'Кейтеринг: лист меню': 'Склад {тиждень}',
     'Кейтеринг: лист підрахунків': 'Підрахунки {тиждень}',
@@ -234,6 +236,8 @@ function setupSettings_(dateRule, listRule, timeOptions) {
       'за правилами прийомів — точкові зміни за листом «Правила змін»; заборонено — лише перегляд; вільно — без обмежень')],
     'Тиждень закрито': ['@', listRule(['ні', 'так'], true,
       'так — форма повністю закривається негайно, незалежно від дедлайнів і правил (форс-мажор)')],
+    'Лист-підтвердження замовлення': ['@', listRule(['так', 'ні'], true,
+      'так — лист батькам після збереження замовлення (один, через ~15 хв після останнього збереження); ні — не надсилати')],
     'Нагадування: за годин до дедлайну': ['0', SpreadsheetApp.newDataValidation()
       .requireNumberBetween(1, 48).setAllowInvalid(false)
       .setHelpText('За скільки годин до дедлайну надсилати email тим, хто ще не замовив').build()],
@@ -521,6 +525,7 @@ function getSettings_() {
     cateringMenuTab: tabSetting_(map['Кейтеринг: лист меню'], 'Склад {тиждень}'),
     cateringAuto: String(map['Кейтеринг: автопередача'] || '').trim().toLowerCase() === 'так',
     remindHours: (typeof map['Нагадування: за годин до дедлайну'] === 'number') ? map['Нагадування: за годин до дедлайну'] : 2,
+    confirmMail: String(map['Лист-підтвердження замовлення'] || 'так').trim().toLowerCase() !== 'ні',
     pastDeadline: !!(deadline && new Date() > deadline),
     deadlineText: deadline ? fmtDl_(deadline) : '',
   };
@@ -879,6 +884,11 @@ function statusModel_() {
     has('reminderTick') ? 'увімкнено: за ' + st.remindHours + ' год до дедлайну' + (rem ? '; на цей тиждень уже надіслано ' + fmtStamp_(rem) : '') : 'вимкнено');
   add('Автоматика', 'Лист про оплату, вписану в таблицю', has('onPaymentEdit') ? 'ok' : 'off',
     has('onPaymentEdit') ? 'увімкнено' : 'вимкнено', 'оплата з адмінпанелі надсилає лист завжди');
+  const pendingConfirm = Object.keys(props.getProperties()).filter(k => k.indexOf(CONFIRM_PREFIX) === 0).length;
+  if (!st.confirmMail) add('Автоматика', 'Лист-підтвердження замовлення', 'off', 'вимкнено', '«Лист-підтвердження замовлення» = ні');
+  else if (!has('confirmTick')) add('Автоматика', 'Лист-підтвердження замовлення', 'err', 'у налаштуваннях «так», але автоматику не ввімкнено' +
+    (pendingConfirm ? ' — у черзі ' + pendingConfirm + ' листів' : ''), 'кнопка «Увімкнути автоматику» нижче');
+  else add('Автоматика', 'Лист-підтвердження замовлення', 'ok', 'увімкнено: ~15 хв після останнього збереження' + (pendingConfirm ? '; у черзі ' + pendingConfirm : ''));
   if (!st.cateringAuto) add('Автоматика', 'Автопередача кейтерингу', 'off', 'вимкнено', '«Кейтеринг: автопередача» = ні');
   else if (!has('cateringTick')) add('Автоматика', 'Автопередача кейтерингу', 'err', 'у налаштуваннях «так», але автоматику не ввімкнено', 'кнопка «Увімкнути автоматику» нижче');
   else add('Автоматика', 'Автопередача кейтерингу', 'ok', 'увімкнено: кожні 15 хв, якщо кількості змінилися');
@@ -1571,7 +1581,11 @@ function api_save(p) {
       // «Зведення» — живі формули, перебудова потрібна лише коли змінився активний тиждень
       if (summaryStale_(st)) refreshSummary_();
     } finally { lock.releaseLock(); }
-    return { ok: true, sum };
+    // лист-підтвердження: ставимо в чергу, confirmTick надішле один лист з актуальною версією
+    const mails = familyEmails_(p.child);
+    let mailTo = '';
+    if (st.confirmMail && mails.length) { queueConfirm_(st.weekLabel, p.child); mailTo = mails.map(maskEmail_).join(', '); }
+    return { ok: true, sum, mailTo: mailTo, changed: parts.length, late: st.pastDeadline };
   } catch (err) { return { error: 'Помилка збереження: ' + err.message }; }
 }
 
@@ -1810,6 +1824,71 @@ function reminderTick() {
   props.setProperty(key, new Date().toISOString());
 }
 
+// ---------------------------------------------------------------- лист-підтвердження замовлення
+
+const CONFIRM_PREFIX = 'cq|';
+const CONFIRM_DELAY_MIN = 10; // скільки хвилин тиші після останнього збереження, перш ніж надсилати
+
+/** ma***@gmail.com — щоб у формі не світити чужу адресу повністю. */
+function maskEmail_(e) {
+  const m = /^([^@]{0,2})[^@]*(@.*)$/.exec(String(e || ''));
+  return m ? m[1] + '***' + m[2] : '';
+}
+
+function queueConfirm_(weekLabel, child) {
+  PropertiesService.getScriptProperties().setProperty(CONFIRM_PREFIX + weekLabel + '|' + child, String(Date.now()));
+}
+
+/** Текст листа з поточним станом замовлення дитини на тиждень. */
+function confirmText_(st, weekLabel, child, choices) {
+  const mon = mondayFromLabel_(weekLabel, new Date());
+  const prices = getPrices_(mon);
+  let sum = 0;
+  const lines = [];
+  for (let d = 0; d < 5; d++) {
+    const picked = [];
+    let daySum = 0;
+    for (let m = 0; m < 3; m++) {
+      const c = choices[d * 3 + m];
+      if (c === '№1' || c === '№2') { picked.push(MEALS[m] + ' ' + c); daySum += prices[MEALS[m]] || 0; }
+    }
+    sum += daySum;
+    lines.push('  ' + DAY_SHORT[d] + ' ' + dm(ymdAdd_(mon, d)) + ': ' + (picked.length ? picked.join(', ') + ' — ' + daySum + ' грн' : 'не замовлено'));
+  }
+  const bal = computeBalances_(weekLabel)[child] || { orderedBefore: 0, paid: 0 };
+  const start = bal.paid - bal.orderedBefore;
+  const active = weekLabel === st.weekLabel;
+  return 'Доброго дня!\n\nЗбережено замовлення харчування: ' + child + ', тиждень ' + weekLabel + '.\n\n' +
+    lines.join('\n') + '\n\nРазом за тиждень: ' + sum + ' грн.\n' +
+    'Баланс на початок тижня: ' + (start >= 0 ? '+' : '') + start + ' грн, після цього тижня: ' + ((start - sum) >= 0 ? '+' : '') + (start - sum) + ' грн.' +
+    (active && !st.pastDeadline ? '\nЗмінити можна до ' + st.deadlineText + ', далі — точкові зміни: ' + rulesSummaryText_(getRules_()) + '.' : '') +
+    (active && st.pastDeadline && st.mode === MODE_RULES ? '\nТочкові зміни: ' + rulesSummaryText_(getRules_()) + '.' : '');
+}
+
+/**
+ * Тригер кожні 15 хв: надсилає по одному листу на кожне збереження з черги, коли після нього
+ * минуло CONFIRM_DELAY_MIN хвилин (батьки встигли дозберегти) — з актуальним станом замовлення.
+ */
+function confirmTick() {
+  const st = getSettings_();
+  const props = PropertiesService.getScriptProperties();
+  const all = props.getProperties();
+  const now = Date.now();
+  Object.keys(all).filter(k => k.indexOf(CONFIRM_PREFIX) === 0).forEach(k => {
+    if (!st.confirmMail) { props.deleteProperty(k); return; }
+    if (now - Number(all[k]) < CONFIRM_DELAY_MIN * 60000) return;
+    const parts = k.slice(CONFIRM_PREFIX.length).split('|');
+    const weekLabel = parts[0], child = parts.slice(1).join('|');
+    props.deleteProperty(k);
+    const to = familyEmails_(child);
+    const choices = ordersForWeek_(weekLabel)[child];
+    if (!to.length || !choices) return;
+    const link = linkFor_(st, ensureToken_(to[0]));
+    sendMail_(to, 'Замовлення збережено: ' + child + ', тиждень ' + weekLabel,
+      confirmText_(st, weekLabel, child, choices) + (link ? '\n\nПереглянути або змінити: ' + link : '') + '\n\nДякуємо!');
+  });
+}
+
 /** Тригер onEdit: оплата вписана вручну в «Оплати» → лист сім’ї. */
 function onPaymentEdit(e) {
   try {
@@ -1824,7 +1903,7 @@ function onPaymentEdit(e) {
   } catch (err) { /* тихо: тригер не має падати */ }
 }
 
-const AUTOMATION = ['reminderTick', 'onPaymentEdit', 'cateringTick'];
+const AUTOMATION = ['reminderTick', 'onPaymentEdit', 'cateringTick', 'confirmTick'];
 
 /** Ставить відсутні тригери автоматики (для поточного акаунта). */
 function enableAutomation_() {
@@ -1832,6 +1911,7 @@ function enableAutomation_() {
   if (have.indexOf('reminderTick') === -1) ScriptApp.newTrigger('reminderTick').timeBased().everyHours(1).create();
   if (have.indexOf('onPaymentEdit') === -1) ScriptApp.newTrigger('onPaymentEdit').forSpreadsheet(ss_()).onEdit().create();
   if (have.indexOf('cateringTick') === -1) ScriptApp.newTrigger('cateringTick').timeBased().everyMinutes(15).create();
+  if (have.indexOf('confirmTick') === -1) ScriptApp.newTrigger('confirmTick').timeBased().everyMinutes(15).create();
 }
 
 /** Прибирає тригери автоматики поточного акаунта; повертає кількість. */
@@ -1849,7 +1929,8 @@ function installTriggers() {
   SpreadsheetApp.getUi().alert(
     'Автоматику ввімкнено:\n• нагадування на email за ' + getSettings_().remindHours +
     ' год до дедлайну тим, хто не замовив (перевірка щогодини);\n• лист родині після оплати, вписаної в лист «Оплати»;\n' +
-    '• автопередача кількостей кейтерингу кожні 15 хв — діє лише коли «Кейтеринг: автопередача» = так.\n\n' +
+    '• автопередача кількостей кейтерингу кожні 15 хв — діє лише коли «Кейтеринг: автопередача» = так;\n' +
+    '• листи-підтвердження замовлень батькам кожні 15 хв — діє лише коли «Лист-підтвердження замовлення» = так.\n\n' +
     'Листи йдуть з вашої пошти (' + ownerEmail_() + '). Поточний стан — меню «ℹ️ Стан системи».');
 }
 

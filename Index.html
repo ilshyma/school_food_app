@@ -153,6 +153,28 @@
   .srow.future{opacity:.7}
   .stmt-note{font-size:12px; color:var(--muted); margin-top:10px}
   .print-only{display:none}
+  /* вікно «Замовлення збережено» */
+  .modal{position:fixed; inset:0; background:rgba(28,43,33,.45); display:flex; align-items:flex-end; justify-content:center;
+       z-index:50; padding:16px}
+  .modal.hidden{display:none}
+  .sheet{background:var(--card); border-radius:18px; width:100%; max-width:520px; max-height:88vh; overflow:auto;
+       padding:18px 18px calc(16px + env(safe-area-inset-bottom)); box-shadow:0 20px 50px -20px rgba(0,0,0,.4)}
+  @media (min-width:640px){ .modal{align-items:center} }
+  .sheet h3{font-size:19px; margin-bottom:2px}
+  .sheet .sub{margin-bottom:12px}
+  .sd{display:grid; grid-template-columns:64px 1fr auto; gap:6px 10px; padding:7px 0; border-top:1px solid var(--line); font-size:13.5px}
+  .sd:first-of-type{border-top:0}
+  .sd .dd{font-weight:700}
+  .sd .dm{color:var(--muted)}
+  .sd .dm b{font-weight:600; color:var(--ink)}
+  .sd .ds{font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums}
+  .sum-box{display:flex; justify-content:space-between; gap:10px; background:var(--bg); border-radius:12px; padding:10px 12px; margin:12px 0 8px}
+  .sum-box span{display:block; font-size:12px; color:var(--muted)}
+  .sum-box b{font-size:17px; font-variant-numeric:tabular-nums}
+  .sheet .mail{font-size:12.5px; color:var(--muted); margin-bottom:12px}
+  .sheet .acts{display:flex; flex-direction:column; gap:8px}
+  .sheet .acts .btn{width:100%}
+  .btn.sec2{background:var(--accent-soft); color:var(--accent)}
   @media print{
     body{background:#fff; padding:0}
     body *{visibility:hidden}
@@ -229,6 +251,9 @@
   </div>
 </div>
 <div id="toast"></div>
+<div class="modal hidden" id="saved" onclick="if(event.target===this)closeSaved()">
+  <div class="sheet" role="dialog" aria-labelledby="saved-title"><div id="saved-body"></div></div>
+</div>
 
 <script>
   var KEY = '<?= key ?>';
@@ -461,7 +486,8 @@
         $('btn-save').textContent = 'Зберегти';
         if (r && r.ok){
           kid.saved = kid.choices.slice();
-          toast('✅ Збережено! ' + kid.name + ': ' + r.sum + ' грн');
+          kid.savedOnce = true;
+          showSaved(kid, r);
         } else {
           toast('⚠️ ' + (r && r.error ? r.error : 'Невідома помилка.'));
         }
@@ -475,6 +501,40 @@
       })
       .api_save({ key: state.token, child: kid.name, choices: kid.choices });
   }
+
+  // ---- вікно «Замовлення збережено» ----
+  function showSaved(kid, r){
+    var rows = state.days.map(function(day, d){
+      var picked = [], sum = 0;
+      state.meals.forEach(function(meal, m){
+        var c = kid.choices[d * 3 + m];
+        if (c !== NONE){ picked.push('<b>' + esc(meal) + '</b> ' + esc(c)); sum += state.prices[meal] || 0; }
+      });
+      var lbl = (state.week.dayLabels[d] || day).split(' ');
+      return '<div class="sd"><div class="dd">' + esc(['Пн','Вт','Ср','Чт','Пт'][d]) + ' ' + esc(lbl[1] || '') + '</div>' +
+        '<div class="dm">' + (picked.length ? picked.join(' · ') : 'не замовлено') + '</div>' +
+        '<div class="ds">' + (sum ? sum + ' грн' : '—') + '</div></div>';
+    }).join('');
+    var after = kid.balanceStart - r.sum;
+    var others = state.children.filter(function(k){ return k !== kid; });
+    var h = '<h3 id="saved-title">✅ Замовлення збережено</h3>' +
+      '<div class="sub">' + esc(kid.name) + ' · тиждень ' + esc(state.week.label) + '</div>' +
+      rows +
+      '<div class="sum-box"><div><span>Разом за тиждень</span><b>' + esc(uah(r.sum)) + '</b></div>' +
+      '<div style="text-align:right"><span>Баланс після цього тижня</span><b class="' + (after < 0 ? 'neg' : 'pos') + '">' + esc(uah(after, true)) + '</b></div></div>' +
+      (r.mailTo ? '<div class="mail">✉️ Підтвердження прийде на ' + esc(r.mailTo) + ' приблизно за 15 хвилин.</div>' : '') +
+      (state.week.deadlineText && !r.late ? '<div class="mail">Змінити можна до ' + esc(state.week.deadlineText) + ' — просто відкрийте форму знову.</div>' : '') +
+      '<div class="acts">';
+    others.forEach(function(k){
+      var i = state.children.indexOf(k);
+      h += '<button class="btn sec2" onclick="closeSaved(); cur=' + i + '; curDay=0; renderTabs(); renderDay(); window.scrollTo(0,0);">' +
+        (k.savedOnce ? 'Переглянути: ' : 'Тепер замовити для: ') + esc(k.name) + ' →</button>';
+    });
+    h += '<button class="btn" onclick="closeSaved()">Готово</button></div>';
+    $('saved-body').innerHTML = h;
+    $('saved').classList.remove('hidden');
+  }
+  function closeSaved(){ $('saved').classList.add('hidden'); }
 
   // ---- виписка ----
   var stmtPreset = 'month';
