@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<base target="_top">
+<style>
+  :root{
+    --bg:#f4f6f4; --card:#ffffff; --ink:#1c2b21; --muted:#66756b;
+    --accent:#2e7d4f; --accent-soft:#e3f1e9; --line:#e2e7e3;
+    --v1:#f0a04b; --v2:#2e7d4f; --v0:#dfe5e0; --today:#3b82c4;
+    --warn-bg:#fdecec; --warn-ink:#a13333;
+    --info-bg:#fdf3e0; --info-ink:#7c5316;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{font:16px/1.45 -apple-system,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink);
+       padding-bottom:96px}
+  .wrap{max-width:640px; margin:0 auto; padding:16px}
+  h1{font-size:20px; margin-bottom:2px}
+  .sub{color:var(--muted); font-size:14px}
+  .bal{font-size:14px; margin:2px 0 14px; font-weight:600}
+  .bal.pos{color:var(--accent)} .bal.neg{color:var(--warn-ink)}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:14px}
+  .banner{border-radius:12px; padding:10px 14px; font-size:14px; margin-bottom:14px}
+  .banner.info{background:var(--accent-soft); color:var(--accent)}
+  .banner.note{background:var(--info-bg); color:var(--info-ink)}
+  .banner.warn{background:var(--warn-bg); color:var(--warn-ink)}
+  .hidden{display:none !important}
+
+  input[type=text],input[type=tel]{width:100%; font-size:18px; padding:12px 14px; border:1px solid var(--line);
+       border-radius:12px; margin:10px 0}
+  .btn{display:block; width:100%; font-size:17px; font-weight:600; padding:13px; border:0;
+       border-radius:12px; background:var(--accent); color:#fff; cursor:pointer}
+  .btn:disabled{opacity:.45; cursor:default}
+  .err{color:var(--warn-ink); font-size:14px; margin-top:8px; min-height:18px}
+
+  /* вибір дитини */
+  .kid{display:flex; justify-content:space-between; align-items:center; gap:10px; border:1.5px solid var(--line);
+       border-radius:12px; padding:12px 14px; margin-bottom:8px; cursor:pointer; background:#fff}
+  .kid:hover{border-color:var(--accent)}
+  .kid b{font-size:16px}
+  .kid .kb{font-size:13px; font-weight:600}
+
+  .tabs{display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px}
+  .tab{flex:0 0 auto; padding:8px 14px; border-radius:999px; border:1px solid var(--line);
+       background:var(--card); font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap}
+  .tab.on{background:var(--accent); border-color:var(--accent); color:#fff}
+  .note{font-size:13px; color:var(--warn-ink); background:var(--warn-bg); border-radius:10px;
+        padding:8px 12px; margin-bottom:12px; white-space:pre-line}
+
+  /* прогрес: 5 днів × 3 клітинки */
+  .days{display:flex; gap:6px; margin-bottom:6px}
+  .daychip{flex:1; border:1.5px solid var(--line); background:var(--card); border-radius:12px;
+       padding:6px 4px 7px; text-align:center; cursor:pointer}
+  .daychip.on{border-color:var(--today); box-shadow:0 0 0 2px rgba(59,130,196,.18)}
+  .daychip b{display:block; font-size:14px}
+  .daychip.on b{color:var(--today)}
+  .daychip span{font-size:11px; color:var(--muted)}
+  .cells{display:flex; gap:3px; justify-content:center; margin-top:5px}
+  .cell{width:16px; height:8px; border-radius:3px; background:var(--v0)}
+  .cell.v1{background:var(--v1)} .cell.v2{background:var(--v2)}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-bottom:14px}
+  .legend i{display:inline-block; width:12px; height:8px; border-radius:2px; vertical-align:middle; margin-right:4px; background:var(--v0)}
+  .legend i.v1{background:var(--v1)} .legend i.v2{background:var(--v2)}
+
+  .day h2{font-size:17px; margin-bottom:10px}
+  .meal{padding:10px 0; border-top:1px dashed var(--line)}
+  .meal:first-of-type{border-top:0}
+  .meal-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px}
+  .meal-head b{font-size:15px}
+  .price{font-size:13px; color:var(--muted)}
+  .opt{display:grid; grid-template-columns:20px 40px 1fr; gap:11px; align-items:center;
+       border:1.5px solid var(--line); border-radius:12px;
+       padding:9px 12px; margin-bottom:7px; cursor:pointer; background:#fff}
+  .opt.on{border-color:var(--accent); background:var(--accent-soft)}
+  .opt.off{opacity:.5; cursor:not-allowed; background:var(--bg)}
+  .opt.on.off{opacity:.8}
+  .dot{width:18px; height:18px; border-radius:50%; border:2px solid #b6c2ba; background:#fff; justify-self:center}
+  .opt.on .dot{border-color:var(--accent); background:var(--accent); box-shadow:inset 0 0 0 3.5px #fff}
+  .opt .t{min-width:0; font-size:13px; color:var(--muted); line-height:1.4}
+  .opt .t div{padding-left:10px; position:relative}
+  .opt .t div::before{content:'·'; position:absolute; left:0}
+  .opt.none .t{color:var(--ink); font-size:14px}
+  .opt.none .t div{padding-left:0}
+  .opt.none .t div::before{content:''}
+  .tag{display:block; text-align:center; font-size:11.5px; font-weight:700; border-radius:6px; padding:2px 0; color:#fff}
+  .tag.v1{background:var(--v1)} .tag.v2{background:var(--v2)}
+  .tag.none{background:var(--v0); color:var(--muted)}
+
+  .daynav{display:flex; gap:10px; margin-bottom:14px}
+  .navbtn{flex:1; font-size:15px; font-weight:600; padding:11px; border-radius:12px; cursor:pointer;
+       border:1.5px solid var(--line); background:var(--card); color:var(--ink)}
+  .navbtn.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+  .navbtn:disabled{opacity:.35; cursor:default}
+
+  .foot{position:fixed; left:0; right:0; bottom:0; background:var(--card); border-top:1px solid var(--line);
+        padding:10px 16px calc(10px + env(safe-area-inset-bottom))}
+  .foot-in{max-width:640px; margin:0 auto; display:flex; gap:12px; align-items:center}
+  .total{flex:1; font-size:13px; color:var(--muted); min-width:0}
+  .total .nm{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .total b{font-size:18px; color:var(--ink)}
+  .foot .btn{width:auto; padding:12px 22px; flex:0 0 auto}
+
+  .linkbox{font-size:13px; color:var(--muted)}
+  .linkbox button{border:0; background:var(--accent-soft); color:var(--accent); font-weight:600;
+        border-radius:8px; padding:6px 10px; cursor:pointer; margin-top:6px; margin-right:6px}
+
+  #toast{position:fixed; left:50%; transform:translateX(-50%); bottom:100px; background:var(--ink);
+        color:#fff; padding:10px 18px; border-radius:10px; font-size:14px; opacity:0; transition:opacity .3s;
+        pointer-events:none; max-width:90%}
+  #toast.show{opacity:.95}
+  .spin{text-align:center; color:var(--muted); padding:48px 0}
+  /* виписка */
+  /* картка «Для кого»: вибір дитини + її баланс, виписка й примітка */
+  .who{padding:12px 14px}
+  .who-top{display:flex; align-items:center; gap:10px; min-width:0}
+  .who-lbl{font-size:12px; color:var(--muted); flex:0 0 auto}
+  .who .tabs{margin:0; flex:1; min-width:0}
+  .who-name{font-size:16px}
+  .who-row{display:flex; align-items:center; justify-content:space-between; gap:10px;
+       margin-top:10px; padding-top:10px; border-top:1px solid var(--line)}
+  .who .bal{margin:0; font-size:16px; line-height:1.2}
+  .who .bal small{display:block; font-size:11.5px; font-weight:400; color:var(--muted); margin-bottom:2px}
+  .stmt-mini{flex:0 0 auto; border:0; background:var(--accent-soft); color:var(--accent); font:inherit;
+       font-weight:600; font-size:13px; border-radius:999px; padding:6px 12px; cursor:pointer}
+  .who .note{margin:10px 0 0}
+  .stmt-head{display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px}
+  .stmt-head b{font-size:16px}
+  .slim{width:auto !important; padding:8px 14px !important; font-size:14px !important; flex:0 0 auto}
+  .presets{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px}
+  .preset{border:1px solid var(--line); background:var(--card); border-radius:999px; padding:6px 12px; font-size:13px; font-weight:600; cursor:pointer}
+  .preset.on{background:var(--accent); border-color:var(--accent); color:#fff}
+  .range{display:flex; gap:8px; align-items:end; flex-wrap:wrap}
+  .range label{font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:3px; flex:1; min-width:130px}
+  .range input{font-size:15px; padding:8px 10px; border:1px solid var(--line); border-radius:10px; font-family:inherit}
+  .sumgrid{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .sumgrid div{background:var(--bg); border-radius:10px; padding:9px 11px}
+  .sumgrid span{display:block; font-size:12px; color:var(--muted)}
+  .sumgrid b{font-size:17px; font-variant-numeric:tabular-nums}
+  .pos{color:var(--accent)} .neg{color:var(--warn-ink)}
+  .srow{display:grid; grid-template-columns:64px 1fr auto; gap:4px 10px; padding:10px 0; border-top:1px solid var(--line)}
+  .srow:first-child{border-top:0}
+  .srow .dt{font-size:13px; font-weight:700}
+  .srow .dt small{display:block; font-weight:400; color:var(--muted); font-size:11px}
+  .srow .ds{font-size:13.5px; min-width:0}
+  .srow .am{text-align:right; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; font-size:14px}
+  .srow .am small{display:block; font-weight:400; color:var(--muted); font-size:11.5px}
+  .srow .mi{display:inline-block; margin:0 4px 3px 0; padding:2px 7px; border-radius:6px; background:var(--bg); font-size:12px}
+  .srow .mi b{color:#fff; border-radius:4px; padding:0 4px; font-size:10.5px; margin-right:3px}
+  .srow .mi b.v1{background:var(--v1)} .srow .mi b.v2{background:var(--v2)}
+  .srow .ch{font-size:12px; color:var(--muted); margin-top:2px}
+  .srow .ch.late{color:var(--info-ink)}
+  .srow .fx{font-size:12px; color:var(--warn-ink); margin-top:2px}
+  .srow.pay .ds{color:var(--accent); font-weight:600}
+  .srow.future{opacity:.7}
+  .stmt-note{font-size:12px; color:var(--muted); margin-top:10px}
+  .print-only{display:none}
+  @media print{
+    body{background:#fff; padding:0}
+    body *{visibility:hidden}
+    #stmt-out, #stmt-out *{visibility:visible}
+    #stmt-out{position:absolute; left:0; top:0; width:100%}
+    #stmt-out .card{border:0; padding:0 0 10px}
+    .print-only{display:block}
+    .srow{break-inside:avoid}
+    #stmt-out .btn{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🍲 Замовлення харчування</h1>
+  <div class="sub" id="week-sub">&nbsp;</div>
+
+  <div id="screen-loading" class="spin">Завантаження…</div>
+
+  <div id="screen-login" class="card hidden">
+    <b>Вхід для батьків</b>
+    <p class="sub" style="margin-top:4px">Введіть телефон або email, вказані у школі — покажемо ваших дітей.</p>
+    <input type="text" id="contact" placeholder="+38 067 123 45 67 або name@gmail.com" autocomplete="on">
+    <button class="btn" id="btn-login" onclick="login()">Увійти</button>
+    <div class="err" id="login-err"></div>
+  </div>
+
+  <div id="screen-choose" class="hidden">
+    <div class="card">
+      <b>Для кого замовляємо?</b>
+      <p class="sub" style="margin:4px 0 12px">До вашого контакту прив’язано кілька дітей. Потім можна перемикатися вкладками.</p>
+      <div id="kids"></div>
+    </div>
+  </div>
+
+  <div id="screen-order" class="hidden">
+    <div class="card who">
+      <div class="who-top"><span class="who-lbl" id="who-lbl">Для кого</span><div class="tabs" id="tabs"></div><b class="who-name hidden" id="who-name"></b></div>
+      <div class="who-row"><span class="bal" id="bal"></span><button class="stmt-mini" onclick="openStatement()">📄 Виписка</button></div>
+      <div id="child-note" class="note hidden"></div>
+    </div>
+    <div id="deadline-banner" class="banner info hidden"></div>
+    <div class="days" id="days"></div>
+    <div class="legend"><span><i class="v1"></i>№1</span><span><i class="v2"></i>№2</span><span><i></i>не замовляю</span><span style="margin-left:auto">клітинки: сніданок · обід · підвечірок</span></div>
+    <div id="grid"></div>
+    <div class="daynav">
+      <button class="navbtn" id="btn-prev" onclick="goDay(curDay-1)">← Назад</button>
+      <button class="navbtn primary" id="btn-next" onclick="goDay(curDay+1)">Далі →</button>
+    </div>
+    <div class="card linkbox hidden" id="linkbox">
+      <span id="link-text">Ваше персональне посилання — збережіть, щоб наступного разу входити без телефону:<br></span>
+      <button id="btn-copy" onclick="copyLink()">📋 Скопіювати посилання</button><button onclick="logout()">Вийти</button>
+    </div>
+  </div>
+  <div id="screen-stmt" class="hidden">
+    <div class="card">
+      <div class="stmt-head"><b id="stmt-title">Виписка</b><button class="navbtn slim" onclick="closeStatement()">← До замовлення</button></div>
+      <div class="presets" id="stmt-presets"></div>
+      <div class="range">
+        <label>з<input type="date" id="stmt-from"></label>
+        <label>по<input type="date" id="stmt-to"></label>
+        <button class="btn slim" onclick="loadStatement()">Показати</button>
+      </div>
+      <div class="err" id="stmt-err"></div>
+    </div>
+    <div id="stmt-out"></div>
+  </div>
+</div>
+
+<div class="foot hidden" id="foot">
+  <div class="foot-in">
+    <div class="total"><div class="nm" id="total-name"></div><b id="total">0 грн</b></div>
+    <button class="btn" id="btn-save" onclick="save()">Зберегти</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+  var KEY = '<?= key ?>';
+  var NONE = '—';
+  var OPTS = ['№1', '№2', NONE];
+  var state = null, cur = 0, curDay = 0, busy = false;
+
+  function $(id){ return document.getElementById(id); }
+  function show(id){
+    ['screen-loading','screen-login','screen-choose','screen-order','screen-stmt'].forEach(function(s){
+      $(s).classList.toggle('hidden', s !== id);
+    });
+    $('foot').classList.toggle('hidden', id !== 'screen-order');
+  }
+  function toast(msg){
+    var t = $('toast'); t.textContent = msg; t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 3200);
+  }
+  function money(v){ return (v > 0 ? '+' : '') + v + ' грн'; }
+
+  function init(){
+    var saved = null;
+    try { saved = localStorage.getItem('meals_contact'); } catch(e){}
+    if (KEY) load({ key: KEY });
+    else if (saved) load({ contact: saved });
+    else load({ auto: true }); // спроба впізнати за Google-акаунтом
+  }
+
+  function login(){
+    var c = $('contact').value.trim();
+    var ok = c.indexOf('@') !== -1 ? /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c) : c.replace(/\D/g,'').length >= 9;
+    if (!ok){ $('login-err').textContent = 'Введіть телефон (мінімум 9 цифр) або email.'; return; }
+    $('login-err').textContent = '';
+    $('btn-login').disabled = true;
+    load({ contact: c });
+  }
+
+  function logout(){
+    try { localStorage.removeItem('meals_contact'); } catch(e){}
+    state = null;
+    show('screen-login');
+  }
+
+  function load(p){
+    show('screen-loading');
+    google.script.run
+      .withSuccessHandler(onData)
+      .withFailureHandler(function(e){ onError('Немає зв’язку: ' + e.message); })
+      .api_init(p);
+  }
+
+  function onError(msg){
+    show('screen-login');
+    $('btn-login').disabled = false;
+    $('login-err').textContent = msg || '';
+  }
+
+  function onData(d){
+    if (!d){ onError('Порожня відповідь сервера.'); return; }
+    if (d.needLogin){ onError(''); return; }
+    if (d.error){ onError(d.error); return; }
+    state = d;
+    try { localStorage.setItem('meals_contact', d.contact); } catch(e){}
+    state.children.forEach(function(k){ k.saved = k.choices.slice(); });
+    cur = 0; curDay = 0;
+    $('week-sub').textContent = 'Тиждень ' + d.week.label;
+    var b = $('deadline-banner');
+    if (d.week.bannerText){
+      b.className = 'banner ' + (d.week.allLocked ? 'warn' : (d.week.bannerText.charAt(0) === '⏰' ? 'info' : 'note'));
+      b.textContent = d.week.bannerText;
+      b.classList.remove('hidden');
+    } else b.classList.add('hidden');
+    // «Вийти» потрібне завжди (спільний пристрій), копіювання — лише коли відомий URL
+    var hasLink = !!(d.appUrl && d.token);
+    $('link-text').classList.toggle('hidden', !hasLink);
+    $('btn-copy').classList.toggle('hidden', !hasLink);
+    $('linkbox').classList.remove('hidden');
+    if (state.children.length > 1) renderChooser();
+    else openChild(0);
+  }
+
+  function renderChooser(){
+    var el = $('kids');
+    el.innerHTML = '';
+    state.children.forEach(function(k, i){
+      var row = document.createElement('div');
+      row.className = 'kid';
+      row.innerHTML = '<b>' + esc(k.name) + '</b><span class="kb ' + (k.balanceStart < 0 ? 'neg' : 'pos') + '">' +
+        'баланс ' + esc(money(k.balanceStart)) + '</span>';
+      row.onclick = function(){ openChild(i); };
+      el.appendChild(row);
+    });
+    show('screen-choose');
+  }
+
+  function openChild(i){
+    cur = i; curDay = 0;
+    renderTabs();
+    renderDay();
+    show('screen-order');
+  }
+
+  function renderTabs(){
+    var el = $('tabs');
+    el.innerHTML = '';
+    var multi = state.children.length > 1;
+    el.classList.toggle('hidden', !multi);
+    $('who-name').classList.toggle('hidden', multi);
+    $('who-name').textContent = state.children[cur].name;
+    $('who-lbl').textContent = multi ? 'Для кого' : 'Дитина';
+    state.children.forEach(function(k, i){
+      var t = document.createElement('div');
+      t.className = 'tab' + (i === cur ? ' on' : '');
+      t.textContent = k.name;
+      t.onclick = function(){ cur = i; curDay = 0; renderTabs(); renderDay(); };
+      el.appendChild(t);
+    });
+  }
+
+  function goDay(i){
+    if (i < 0 || i > 4) return;
+    curDay = i;
+    renderDay();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function optAllowed(kid, i, opt){
+    var sv = kid.saved[i];
+    if (opt === sv) return true;
+    var p = state.perms[i];
+    if (opt === NONE) return p.x;
+    if (sv === NONE) return p.c;
+    return p.c && p.x;
+  }
+
+  function lockReason(kid, i, opt){
+    var p = state.perms[i];
+    var meal = state.meals[i % 3], day = state.week.dayLabels[Math.floor(i / 3)];
+    if (opt === NONE) return 'Скасувати ' + meal.toLowerCase() + ' (' + day + ') можна було до ' + p.xt;
+    return 'Змінити ' + meal.toLowerCase() + ' (' + day + ') можна було до ' + p.ct;
+  }
+
+  function renderProgress(){
+    var kid = state.children[cur];
+    var el = $('days');
+    el.innerHTML = '';
+    state.days.forEach(function(day, d){
+      var chip = document.createElement('div');
+      chip.className = 'daychip' + (d === curDay ? ' on' : '');
+      var lbl = (state.week.dayLabels[d] || day).split(' ');
+      var cells = [0,1,2].map(function(m){
+        var c = kid.choices[d * 3 + m];
+        return '<div class="cell' + (c === '№1' ? ' v1' : c === '№2' ? ' v2' : '') + '"></div>';
+      }).join('');
+      chip.innerHTML = '<b>' + esc(['Пн','Вт','Ср','Чт','Пт'][d]) + '</b><span>' + esc(lbl[1] || '') + '</span>' +
+        '<div class="cells">' + cells + '</div>';
+      chip.onclick = function(){ goDay(d); };
+      el.appendChild(chip);
+    });
+    $('btn-prev').disabled = (curDay === 0);
+    $('btn-next').disabled = (curDay === 4);
+    $('btn-next').textContent = curDay === 4 ? 'Це останній день' : 'Далі →';
+  }
+
+  function renderDay(){
+    var kid = state.children[cur];
+    var note = $('child-note');
+    note.classList.toggle('hidden', !kid.note);
+    note.textContent = kid.note ? '📌 ' + kid.note : '';
+    var bal = $('bal');
+    bal.innerHTML = '<small>Баланс на початок тижня</small>' + esc(uah(kid.balanceStart, true));
+    bal.className = 'bal ' + (kid.balanceStart < 0 ? 'neg' : 'pos');
+
+    renderProgress();
+
+    var g = $('grid');
+    g.innerHTML = '';
+    var d = curDay, day = state.days[d];
+    var card = document.createElement('div');
+    card.className = 'card day';
+    card.innerHTML = '<h2>' + esc(state.week.dayLabels[d] || day) + '</h2>';
+    state.meals.forEach(function(meal, m){
+      var idx = d * 3 + m;
+      var anyAction = OPTS.some(function(o){ return o !== kid.saved[idx] && optAllowed(kid, idx, o); });
+      var block = document.createElement('div');
+      block.className = 'meal';
+      block.innerHTML = '<div class="meal-head"><b>' + esc(meal) + (anyAction ? '' : ' 🔒') + '</b>' +
+        '<span class="price">' + (state.prices[meal] || 0) + ' грн</span></div>';
+      OPTS.forEach(function(opt){
+        var desc = '';
+        if (opt !== NONE && state.menu[day] && state.menu[day][meal]) desc = state.menu[day][meal][opt] || '';
+        var allowed = optAllowed(kid, idx, opt);
+        var o = document.createElement('div');
+        o.className = 'opt' + (kid.choices[idx] === opt ? ' on' : '') +
+          (opt === NONE ? ' none' : '') + (allowed ? '' : ' off');
+        var lines = desc ? desc.split(/;\s*/).filter(Boolean).map(function(s){ return '<div>' + esc(s) + '</div>'; }).join('') : '';
+        o.innerHTML = '<div class="dot"></div>' +
+          '<div class="tag ' + (opt === NONE ? 'none' : opt === '№1' ? 'v1' : 'v2') + '">' + (opt === NONE ? '—' : esc(opt)) + '</div>' +
+          '<div class="t">' + (opt === NONE ? '<div>Не замовляю</div>' : (lines || '<div>меню уточнюється</div>')) + '</div>';
+        o.onclick = function(){
+          if (!allowed){ toast('🔒 ' + lockReason(kid, idx, opt)); return; }
+          kid.choices[idx] = opt;
+          renderDay();
+        };
+        block.appendChild(o);
+      });
+      card.appendChild(block);
+    });
+    g.appendChild(card);
+    updateTotal();
+  }
+
+  function updateTotal(){
+    var kid = state.children[cur], sum = 0;
+    kid.choices.forEach(function(c, i){ if (c !== NONE) sum += state.prices[state.meals[i % 3]] || 0; });
+    $('total-name').textContent = kid.name;
+    $('total').textContent = sum + ' грн за тиждень';
+    $('btn-save').disabled = !!state.week.allLocked || busy;
+  }
+
+  function save(){
+    if (busy || state.week.allLocked) return;
+    busy = true;
+    $('btn-save').textContent = 'Зберігаю…';
+    updateTotal();
+    var kid = state.children[cur];
+    google.script.run
+      .withSuccessHandler(function(r){
+        busy = false;
+        $('btn-save').textContent = 'Зберегти';
+        if (r && r.ok){
+          kid.saved = kid.choices.slice();
+          toast('✅ Збережено! ' + kid.name + ': ' + r.sum + ' грн');
+        } else {
+          toast('⚠️ ' + (r && r.error ? r.error : 'Невідома помилка.'));
+        }
+        renderDay();
+      })
+      .withFailureHandler(function(e){
+        busy = false;
+        $('btn-save').textContent = 'Зберегти';
+        updateTotal();
+        toast('⚠️ Не збереглося: ' + e.message);
+      })
+      .api_save({ key: state.token, child: kid.name, choices: kid.choices });
+  }
+
+  // ---- виписка ----
+  var stmtPreset = 'month';
+  function isoDay(d){ return d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2) + '-' + ('0'+d.getDate()).slice(-2); }
+  function presetRange(key){
+    var t = new Date(), y = t.getFullYear(), m = t.getMonth();
+    if (key === 'month') return [new Date(y, m, 1), t];
+    if (key === 'prev') return [new Date(y, m - 1, 1), new Date(y, m, 0)];
+    if (key === 'week'){ var wd = (t.getDay() + 6) % 7; var mon = new Date(y, m, t.getDate() - wd); return [mon, new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 4)]; }
+    if (key === 'year') return [new Date(m >= 8 ? y : y - 1, 8, 1), t];
+    return [new Date(2000, 0, 1), new Date(y + 1, 11, 31)]; // весь час, разом із замовленим наперед
+  }
+  var PRESETS = [['month','Цей місяць'],['prev','Минулий місяць'],['week','Цей тиждень'],['year','Навчальний рік'],['all','Весь час']];
+  function renderPresets(){
+    var el = $('stmt-presets'); el.innerHTML = '';
+    PRESETS.forEach(function(p){
+      var b = document.createElement('div');
+      b.className = 'preset' + (stmtPreset === p[0] ? ' on' : '');
+      b.textContent = p[1];
+      b.onclick = function(){ setPreset(p[0]); loadStatement(); };
+      el.appendChild(b);
+    });
+  }
+  function setPreset(key){
+    stmtPreset = key;
+    var r = presetRange(key);
+    $('stmt-from').value = isoDay(r[0]); $('stmt-to').value = isoDay(r[1]);
+    renderPresets();
+  }
+  function openStatement(){
+    var kid = state.children[cur];
+    $('stmt-title').textContent = 'Виписка · ' + kid.name;
+    $('stmt-out').innerHTML = '';
+    setPreset(stmtPreset);
+    show('screen-stmt');
+    window.scrollTo(0, 0);
+    loadStatement();
+  }
+  function closeStatement(){ show('screen-order'); renderDay(); }
+  function uah(v, sign){
+    var s = Math.abs(v).toLocaleString('uk-UA') + ' грн';
+    return sign ? (v > 0 ? '+' : v < 0 ? '−' : '') + s : (v < 0 ? '−' : '') + s;
+  }
+  function loadStatement(){
+    var from = $('stmt-from').value, to = $('stmt-to').value;
+    $('stmt-err').textContent = '';
+    if (from && to && from > to){ $('stmt-err').textContent = 'Дата «з» пізніша за дату «по».'; return; }
+    $('stmt-out').innerHTML = '<div class="spin">Рахую…</div>';
+    var kid = state.children[cur];
+    google.script.run
+      .withSuccessHandler(function(r){
+        if (!r || r.error){ $('stmt-out').innerHTML = ''; $('stmt-err').textContent = r ? r.error : 'Помилка'; return; }
+        $('stmt-out').innerHTML = statementHtml(r);
+      })
+      .withFailureHandler(function(e){ $('stmt-out').innerHTML = ''; $('stmt-err').textContent = 'Немає зв’язку: ' + e.message; })
+      .api_statement({ key: state.token, child: kid.name, from: from, to: to });
+  }
+  function statementHtml(r){
+    var cls = function(v){ return v < 0 ? 'neg' : v > 0 ? 'pos' : ''; };
+    var h = '<div class="card">' +
+      '<div class="print-only"><b>Виписка з харчування · ' + esc(r.name) + '</b><br>' + esc(r.fromLabel) + ' — ' + esc(r.toLabel) + '<br><br></div>' +
+      '<div class="sumgrid">' +
+        '<div><span>Баланс на ' + esc(r.fromLabel) + '</span><b class="' + cls(r.opening) + '">' + uah(r.opening, true) + '</b></div>' +
+        '<div><span>Баланс на ' + esc(r.toLabel) + '</span><b class="' + cls(r.closing) + '">' + uah(r.closing, true) + '</b></div>' +
+        '<div><span>Оплачено за період</span><b class="pos">' + uah(r.paid, true) + '</b></div>' +
+        '<div><span>Харчування за період</span><b>' + uah(-r.charged, true) + '</b></div>' +
+      '</div></div>';
+    if (!r.rows.length) return h + '<div class="card"><span class="sub">За цей період немає ні харчування, ні оплат.</span></div>';
+    h += '<div class="card">';
+    r.rows.forEach(function(x){
+      var desc = '';
+      if (x.kind === 'pay') desc = '💳 Оплата' + (x.comment ? ' · ' + esc(x.comment) : '');
+      else {
+        desc = x.items.length ? x.items.map(function(i){
+          return '<span class="mi"><b class="' + (i.v === '№1' ? 'v1' : 'v2') + '">' + esc(i.v) + '</b>' + esc(i.meal) + ' ' + i.price + '</span>';
+        }).join('') : '<span class="sub">нічого не замовлено</span>';
+        if (x.fix) desc += '<div class="fx">уточнення суми тижня: ' + uah(-x.fix, true) + ' — при замовленні тиждень зафіксовано на ' +
+          uah(x.frozen) + ', а за нинішніми цінами виходить ' + uah(x.calc) + '</div>';
+        (x.changes || []).forEach(function(c){
+          desc += '<div class="ch' + (c.late ? ' late' : '') + '">змінено ' + esc(c.when) + ': ' + esc(c.text) + (c.late ? ' · після дедлайну' : '') + '</div>';
+        });
+      }
+      h += '<div class="srow' + (x.kind === 'pay' ? ' pay' : '') + (x.future ? ' future' : '') + '">' +
+        '<div class="dt">' + esc(x.label) + (x.future ? '<small>наперед</small>' : '') + '</div>' +
+        '<div class="ds">' + desc + '</div>' +
+        '<div class="am ' + cls(x.amount) + '">' + (x.amount ? uah(x.amount, true) : '0 грн') + '<small>залишок ' + uah(x.balance, true) + '</small></div>' +
+      '</div>';
+    });
+    h += '<div class="stmt-note">Харчування списується за днем, на який його замовлено. «Наперед» — замовлено на дні, що ще не настали: ' +
+      'їх можна скасувати, поки відкрите вікно змін.</div>' +
+      '<button class="btn slim" style="margin-top:12px" onclick="window.print()">🖨 Друк / зберегти PDF</button></div>';
+    return h;
+  }
+  function copyLink(){
+    var url = state.appUrl + (state.appUrl.indexOf('?') === -1 ? '?' : '&') + 'key=' + state.token;
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(function(){ toast('Посилання скопійовано'); });
+    } else { prompt('Скопіюйте посилання:', url); }
+  }
+
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  init();
+</script>
+</body>
+</html>

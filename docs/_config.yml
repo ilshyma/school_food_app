@@ -1,0 +1,47 @@
+title: Харчування Онлайн
+description: Посібник із системи замовлення шкільного харчування — для батьків, адміністратора й розробника
+lang: uk
+
+url: https://ilshyma.github.io
+baseurl: /school_food_app
+
+remote_theme: just-the-docs/just-the-docs@v0.10.0
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag
+  - jekyll-relative-links
+
+relative_links:
+  enabled: true
+  collections: false
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+color_scheme: light
+search_enabled: true
+search:
+  heading_level: 3
+  previews: 3
+  preview_words_before: 4
+  preview_words_after: 10
+  button: true
+
+heading_anchors: true
+back_to_top: true
+back_to_top_text: "↑ Нагору"
+
+aux_links:
+  "Код на GitHub": ["https://github.com/ilshyma/school_food_app"]
+aux_links_new_tab: true
+
+gh_edit_link: true
+gh_edit_link_text: "✏️ Виправити цю сторінку на GitHub"
+gh_edit_repository: "https://github.com/ilshyma/school_food_app"
+gh_edit_branch: "main"
+gh_edit_source: docs
+gh_edit_view_mode: "edit"
+
+footer_content: "Харчування Онлайн · Google Sheets + Apps Script · документація зберігається в теці <code>docs/</code> репозиторію."
