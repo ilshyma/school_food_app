@@ -255,9 +255,12 @@ function setupSettings_(dateRule, listRule, timeOptions) {
     if (!f) return;
     const cell = st.getRange(i + 1, 2);
     cell.setNumberFormat(f[0]);
-    // понеділок: не просто дата, а саме понеділок — інакше тиждень з'їжджає (27.09 нд → «27.09-01.10»)
+    // понеділок: не просто дата, а саме понеділок — інакше тиждень з'їжджає (27.09 нд → «27.09-01.10»).
+    // Формулу перевірки даних Google розбирає за локаллю таблиці (у «комових» локалях аргументи через «;»),
+    // тому тут жодних розділювачів: WEEKDAY(дата) = 2 для понеділка, «*» — логічне «і».
+    const ref = 'B' + (i + 1);
     cell.setDataValidation(key === 'Понеділок тижня (дата)'
-      ? SpreadsheetApp.newDataValidation().requireFormulaSatisfied('=AND(ISNUMBER(B' + (i + 1) + '),WEEKDAY(B' + (i + 1) + ',2)=1)')
+      ? SpreadsheetApp.newDataValidation().requireFormulaSatisfied('=ISNUMBER(' + ref + ')*(WEEKDAY(' + ref + ')=2)=1')
         .setAllowInvalid(false).setHelpText('Лише понеділок, напр. 05.10.2026. Найпростіше — меню «▶ Новий тиждень».').build()
       : f[1]);
   });
